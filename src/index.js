@@ -26,6 +26,7 @@ const CITY_GROUPS = [['נתיבות','שדרות','באר שבע','אופקים'
 
 export default {
   async fetch(request, env) {
+    console.log("TOKEN EXISTS:", !!env.TELEGRAM_BOT_TOKEN);
     console.log("METHOD:", request.method);
     console.log("URL:", request.url);
     const url = new URL(request.url);
@@ -37,14 +38,6 @@ export default {
     }
     const update = await request.json();
     console.log("UPDATE:", JSON.stringify(update));
-    await handleUpdate(update, env);
-    return new Response('OK');
-    console.log("TOKEN EXISTS:", !!env.TELEGRAM_BOT_TOKEN);
-    const url = new URL(request.url);
-    if (request.method === 'GET') return new Response('OREF Telegram Bot is running on Cloudflare Workers.');
-    if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
-    if (env.WEBHOOK_SECRET && url.pathname !== `/webhook/${env.WEBHOOK_SECRET}`) return new Response('Not Found', { status: 404 });
-    const update = await request.json();
     await handleUpdate(update, env);
     return new Response('OK');
   }
