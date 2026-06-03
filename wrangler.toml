@@ -1,4 +1,4 @@
-name = "oref-bot"
+name = "oref"
 main = "src/index.js"
 compatibility_date = "2026-06-03"
 
@@ -8,3 +8,10 @@ compatibility_date = "2026-06-03"
 binding = "DB"
 database_name = "oref-db"
 database_id = "7590391a-c434-4e7e-a9f3-6267b10d51bb"
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+invocation_logs = true
