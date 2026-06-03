@@ -7,4 +7,4 @@ compatibility_date = "2026-06-03"
 [[d1_databases]]
 binding = "DB"
 database_name = "oref-db"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "7590391a-c434-4e7e-a9f3-6267b10d51bb"
