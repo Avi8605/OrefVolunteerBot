@@ -1,4 +1,4 @@
-name = "oref-bot"
+name = "oref"
 main = "src/index.js"
 compatibility_date = "2026-06-03"
 
