@@ -1,0 +1,10 @@
+name = "oref-bot"
+main = "src/index.js"
+compatibility_date = "2026-06-03"
+
+# After running: npx wrangler d1 create oref-db
+# replace database_id below with the ID Cloudflare prints.
+[[d1_databases]]
+binding = "DB"
+database_name = "oref-db"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
