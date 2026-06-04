@@ -9,6 +9,7 @@ export default {
       const mode = url.searchParams.get("hub.mode");
       const token = url.searchParams.get("hub.verify_token");
       const challenge = url.searchParams.get("hub.challenge");
+      console.log("TOKEN LENGTH:", env.WHATSAPP_TOKEN?.length);
 
       if (mode === "subscribe" && token === VERIFY_TOKEN) {
         return new Response(challenge, { status: 200 });
@@ -20,7 +21,7 @@ export default {
     if (request.method === "POST") {
       const text = await request.text();
       console.log("RAW BODY:", text);
-
+      console.log("TOKEN LENGTH:", env.WHATSAPP_TOKEN?.length);
       if (!text) {
         return new Response("EMPTY BODY OK", { status: 200 });
       }
