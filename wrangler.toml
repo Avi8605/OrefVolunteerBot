@@ -2,12 +2,20 @@ name = "oref"
 main = "src/index.js"
 compatibility_date = "2026-06-03"
 
-# After running: npx wrangler d1 create oref-db
-# replace database_id below with the ID Cloudflare prints.
 [[d1_databases]]
 binding = "DB"
 database_name = "oref-db"
 database_id = "7590391a-c434-4e7e-a9f3-6267b10d51bb"
+
+[[secrets_store_secrets]]
+binding = "VERIFY_TOKEN"
+store_id = "bb3b88e229f74032ba708975ac34e7fb"
+secret_name = "VERIFY_TOKEN"
+
+[[secrets_store_secrets]]
+binding = "WHATSAPP_TOKEN"
+store_id = "bb3b88e229f74032ba708975ac34e7fb"
+secret_name = "WHATSAPP_TOKEN"
 
 [observability]
 enabled = true
