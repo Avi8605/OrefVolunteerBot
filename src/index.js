@@ -65,7 +65,6 @@ export default {
       const mode = url.searchParams.get("hub.mode");
       const token = url.searchParams.get("hub.verify_token");
       const challenge = url.searchParams.get("hub.challenge");
-
       const verifyToken = await env.VERIFY_TOKEN.get();
 
       if (mode === "subscribe" && token === verifyToken) {
@@ -82,7 +81,6 @@ export default {
 
         const value = body.entry?.[0]?.changes?.[0]?.value;
         const phoneNumberId = value?.metadata?.phone_number_id;
-
         const message = value?.messages?.[0];
         const from = message?.from;
         const firstName = value?.contacts?.[0]?.profile?.name || "משתמש";
@@ -114,7 +112,7 @@ export default {
 async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
   if (!text) return;
 
-  const lowerText = text.toLowerCase();
+  const lowerText = text.toLowerCase().trim();
 
   if (lowerText === "ביטול" || lowerText === "/cancel") {
     await clearSession(env, from);
@@ -125,12 +123,22 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
     return sendTxt(phoneNumberId, from, "הבקשה הפעילה שלכם בוטלה בהצלחה.", env);
   }
 
-  if (lowerText === "/start" || lowerText === "start") {
+  if (lowerText === "/start" || lowerText === "start" || lowerText === "התחל") {
     await clearSession(env, from);
     return sendTxt(
       phoneNumberId,
       from,
-      `שלום ${firstName}! 👋\n\nאני בוט עזרה למשפחות מילואימניקים.\n\nכתבו לי בהודעה חופשית מה אתם צריכים, לדוגמה:\n• יש לנו קצר בחשמל בבית\n• צריכים בייביסיטר לילדים בערב\n• מחפשים מישהו שיקנה לנו תרופות`,
+      `שלום ${firstName}! 👋\n\nאני בוט עזרה למשפחות מילואימניקים.\n\nכתבו לי בהודעה חופשית מה אתם צריכים, לדוגמה:\n• יש לנו קצר בחשמל בבית\n• צריכים בייביסיטר לילדים בערב\n• מחפשים מישהו שיקנה לנו תרופות\n\nלמחיקה/התחלה מחדש כתבו: ביטול`,
+      env
+    );
+  }
+
+  if (isSmallTalk(text)) {
+    await clearSession(env, from);
+    return sendTxt(
+      phoneNumberId,
+      from,
+      `שלום ${firstName}! 👋\n\nכתבו לי מה אתם צריכים, למשל:\n• יש לנו נזילה במטבח\n• צריכים הסעה לבית החולים\n• מחפשים בייביסיטר לערב`,
       env
     );
   }
@@ -159,91 +167,52 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
     return sendUrgencyList(phoneNumberId, from, session.pending_category, city, env);
   }
 
-  if (isSmallTalk(text)) {
-    return sendTxt(
-      phoneNumberId,
-      from,
-      `שלום ${firstName}! 👋\n\nאני בוט עזרה למשפחות מילואימניקים. כתבו לי מה אתם צריכים, למשל:\n• יש לנו נזילה במטבח\n• צריכים הסעה לבית החולים\n• מחפשים בייביסיטר לערב`,
-      env
-    );
-  }
-
   const category = classify(text);
   const city = extractCity(text);
 
   await setSession(env, from, {
     pending_name: firstName,
     pending_description: text,
-    pending_category: category,
+    suggested_category: category,
     pending_phone: from,
-    awaiting_city: !city,
     pending_city: city || undefined,
+    awaiting_category_confirm: true,
+    awaiting_city: false,
     last_interaction: nowIso()
   });
 
-  if (!city) {
-    return sendTxt(
-      phoneNumberId,
-      from,
-      `זוהה סוג עזרה: *${CATEGORY_HEBREW[category] || category}*\n\nבאיזו עיר אתם נמצאים?`,
-      env
-    );
-  }
-
-  return sendUrgencyList(phoneNumberId, from, category, city, env);
+  return sendCategoryConfirmButtons(phoneNumberId, from, category, env);
 }
 
 async function handleWhatsAppInteractive(phoneNumberId, from, interactive, env) {
-  if (interactive.type === "list_reply") {
-    const urgency = interactive.list_reply.id;
-    const session = await getSession(env, from);
-
-    if (!session.pending_description) {
-      return sendTxt(phoneNumberId, from, "הפנייה לא נמצאה במערכת. נא לתאר שוב מה אתם צריכים.", env);
-    }
-
-    const req = await createRequest(env, session, urgency);
-    await clearSession(env, from);
-
-    const volunteers = await findVolunteers(env, req.city, req.category);
-
-    if (!volunteers.length) {
-      return sendTxt(
-        phoneNumberId,
-        from,
-        `${URGENCY_EMOJI[urgency] || "📋"} בקשתך התקבלה בהצלחה.\n\nמספר בקשה: ${req.id}\nאין כרגע מתנדבים זמינים בעיר שלך בתחום זה.`,
-        env
-      );
-    }
-
-    let notified = 0;
-
-    for (const v of volunteers) {
-      const msgForVolunteer =
-        `${URGENCY_EMOJI[urgency]} *בקשת עזרה חדשה!* (${URGENCY_HEBREW[urgency]})\n\n` +
-        `משפחה באזור *${req.city}* צריכה עזרה בתחום *${CATEGORY_HEBREW[req.category] || req.category}*.\n\n` +
-        `*תיאור:* ${req.description}`;
-
-      const ok = await sendButtons(phoneNumberId, v.phone, msgForVolunteer, [
-        { id: `accept_${req.id}_${v.id}`, title: "✅ אני יכול לעזור" },
-        { id: `reject_${req.id}_${v.id}`, title: "❌ לא זמין כעת" }
-      ], env);
-
-      if (ok) notified++;
-    }
-
-    return sendTxt(
-      phoneNumberId,
-      from,
-      `${URGENCY_EMOJI[urgency]} בקשתך התקבלה ונרשמה.\n\nמספר: ${req.id}\nסוג: ${CATEGORY_HEBREW[req.category] || req.category}\nעיר: ${req.city}\nדחיפות: ${URGENCY_HEBREW[urgency]}\n\nשלחנו התראה ל-${notified} מתנדבים.`,
-      env
-    );
-  }
-
   if (interactive.type === "button_reply") {
     const buttonId = interactive.button_reply.id;
-    const parts = buttonId.split("_");
 
+    if (buttonId === "confirm_category_yes") {
+      const session = await getSession(env, from);
+      session.pending_category = session.suggested_category || "general";
+      session.awaiting_category_confirm = false;
+
+      if (!session.pending_city) {
+        session.awaiting_city = true;
+        await setSession(env, from, session);
+        return sendTxt(phoneNumberId, from, "באיזו עיר אתם נמצאים?", env);
+      }
+
+      await setSession(env, from, session);
+      return sendUrgencyList(phoneNumberId, from, session.pending_category, session.pending_city, env);
+    }
+
+    if (buttonId === "confirm_category_no") {
+      const session = await getSession(env, from);
+      session.awaiting_category_confirm = false;
+      session.awaiting_manual_category = true;
+      await setSession(env, from, session);
+
+      return sendCategoryList(phoneNumberId, from, env);
+    }
+
+    const parts = buttonId.split("_");
     if (parts.length < 3) return;
 
     const [action, requestId, volunteerId] = parts;
@@ -296,9 +265,124 @@ async function handleWhatsAppInteractive(phoneNumberId, from, interactive, env) 
         "UPDATE volunteers SET available=0, updated_at=? WHERE id=?"
       ).bind(nowIso(), vol.id).run();
 
-      await sendTxt(phoneNumberId, from, `אין בעיה, ${vol.name}. סומנת כלא זמין זמנית.`, env);
+      return sendTxt(phoneNumberId, from, `אין בעיה, ${vol.name}. סומנת כלא זמין זמנית.`, env);
     }
   }
+
+  if (interactive.type === "list_reply") {
+    const selectedId = interactive.list_reply.id;
+
+    if (selectedId.startsWith("cat_")) {
+      const category = selectedId.replace("cat_", "");
+      const session = await getSession(env, from);
+
+      session.pending_category = category;
+      session.awaiting_manual_category = false;
+
+      if (!session.pending_city) {
+        session.awaiting_city = true;
+        await setSession(env, from, session);
+        return sendTxt(phoneNumberId, from, "באיזו עיר אתם נמצאים?", env);
+      }
+
+      await setSession(env, from, session);
+      return sendUrgencyList(phoneNumberId, from, category, session.pending_city, env);
+    }
+
+    const urgency = selectedId;
+    const session = await getSession(env, from);
+
+    if (!session.pending_description) {
+      return sendTxt(phoneNumberId, from, "הפנייה לא נמצאה במערכת. נא לתאר שוב מה אתם צריכים.", env);
+    }
+
+    const req = await createRequest(env, session, urgency);
+    await clearSession(env, from);
+
+    const volunteers = await findVolunteers(env, req.city, req.category);
+
+    if (!volunteers.length) {
+      return sendTxt(
+        phoneNumberId,
+        from,
+        `${URGENCY_EMOJI[urgency] || "📋"} בקשתך התקבלה בהצלחה.\n\nמספר בקשה: ${req.id}\nאין כרגע מתנדבים זמינים בעיר שלך בתחום זה.`,
+        env
+      );
+    }
+
+    let notified = 0;
+
+    for (const v of volunteers) {
+      const msgForVolunteer =
+        `${URGENCY_EMOJI[urgency]} *בקשת עזרה חדשה!* (${URGENCY_HEBREW[urgency]})\n\n` +
+        `משפחה באזור *${req.city}* צריכה עזרה בתחום *${CATEGORY_HEBREW[req.category] || req.category}*.\n\n` +
+        `*תיאור:* ${req.description}`;
+
+      const ok = await sendButtons(phoneNumberId, v.phone, msgForVolunteer, [
+        { id: `accept_${req.id}_${v.id}`, title: "✅ אני יכול לעזור" },
+        { id: `reject_${req.id}_${v.id}`, title: "❌ לא זמין כעת" }
+      ], env);
+
+      if (ok) notified++;
+    }
+
+    return sendTxt(
+      phoneNumberId,
+      from,
+      `${URGENCY_EMOJI[urgency]} בקשתך התקבלה ונרשמה.\n\nמספר: ${req.id}\nסוג: ${CATEGORY_HEBREW[req.category] || req.category}\nעיר: ${req.city}\nדחיפות: ${URGENCY_HEBREW[urgency]}\n\nשלחנו התראה ל-${notified} מתנדבים.`,
+      env
+    );
+  }
+}
+
+async function sendCategoryConfirmButtons(phoneNumberId, to, category, env) {
+  return sendButtons(
+    phoneNumberId,
+    to,
+    `זיהיתי שסוג העזרה הוא: *${CATEGORY_HEBREW[category] || category}*.\n\nהאם זה סוג העזרה שהתכוונת אליו?`,
+    [
+      { id: "confirm_category_yes", title: "✅ כן" },
+      { id: "confirm_category_no", title: "❌ לא" }
+    ],
+    env
+  );
+}
+
+async function sendCategoryList(phoneNumberId, to, env) {
+  const token = await env.WHATSAPP_TOKEN.get();
+
+  const rows = Object.entries(CATEGORY_HEBREW).map(([id, title]) => ({
+    id: `cat_${id}`,
+    title: title.slice(0, 24)
+  }));
+
+  const res = await fetch(`https://graph.facebook.com/v18.0/${phoneNumberId}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to,
+      type: "interactive",
+      interactive: {
+        type: "list",
+        header: { type: "text", text: "בחירת סוג עזרה" },
+        body: { text: "בחרו את סוג העזרה המתאים מהרשימה:" },
+        action: {
+          button: "בחר סוג",
+          sections: [{ title: "סוגי עזרה", rows }]
+        }
+      }
+    })
+  });
+
+  const result = await res.text();
+  console.log("sendCategoryList status:", res.status);
+  console.log("sendCategoryList result:", result);
+
+  return res.ok;
 }
 
 async function sendTxt(phoneNumberId, to, text, env) {
