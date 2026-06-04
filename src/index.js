@@ -596,22 +596,29 @@ async function clearSession(env, chatId) {
 async function classifyWithAI(env, text) {
   try {
     const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
+      temperature: 0,
+      max_tokens: 8,
       messages: [
         {
           role: "system",
           content:
-            "אתה מסווג בקשות עזרה למשפחות מילואימניקים. החזר רק מילה אחת מתוך: plumbing, electricity, air_conditioning, transportation, childcare, food, medical, errands, household, emotional, tutoring, general."
+            "You are a strict text classifier. Return exactly one category key and nothing else. Allowed categories: plumbing, electricity, air_conditioning, transportation, childcare, food, medical, errands, household, emotional, tutoring, general. Do not explain. Do not answer the user. Output only one allowed category key."
         },
         {
           role: "user",
-          content: text
+          content:
+            `Classify this Hebrew help request into exactly one allowed category.\n\nRequest: ${text}\n\nCategory:`
         }
       ]
     });
 
     console.log("AI raw result:", JSON.stringify(result));
 
-    const category = String(result.response || "").trim();
+    const raw = String(result.response || "").trim().toLowerCase();
+    const category = raw
+      .replace(/```/g, "")
+      .replace(/[^a-z_]/g, "")
+      .trim();
 
     console.log("AI category:", category);
 
