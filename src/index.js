@@ -351,9 +351,22 @@ async function sendCategoryConfirmButtons(phoneNumberId, to, category, env) {
 async function sendCategoryList(phoneNumberId, to, env) {
   const token = await env.WHATSAPP_TOKEN.get();
 
-  const rows = Object.entries(CATEGORY_HEBREW).map(([id, title]) => ({
+  const allowedCategories = [
+    "plumbing",
+    "electricity",
+    "air_conditioning",
+    "transportation",
+    "childcare",
+    "food",
+    "medical",
+    "errands",
+    "household",
+    "general"
+  ];
+
+  const rows = allowedCategories.map((id) => ({
     id: `cat_${id}`,
-    title: title.slice(0, 24)
+    title: CATEGORY_HEBREW[id].slice(0, 24)
   }));
 
   const res = await fetch(`https://graph.facebook.com/v18.0/${phoneNumberId}/messages`, {
