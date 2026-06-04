@@ -595,8 +595,6 @@ async function clearSession(env, chatId) {
 }
 async function classifyWithAI(env, text) {
   try {
-    console.log("AI raw result:", JSON.stringify(result));
-    console.log("AI category:", category);
     const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
       messages: [
         {
@@ -611,7 +609,11 @@ async function classifyWithAI(env, text) {
       ]
     });
 
+    console.log("AI raw result:", JSON.stringify(result));
+
     const category = String(result.response || "").trim();
+
+    console.log("AI category:", category);
 
     if (CATEGORY_HEBREW[category]) {
       return category;
