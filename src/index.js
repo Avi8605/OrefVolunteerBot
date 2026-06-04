@@ -167,7 +167,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
     return sendUrgencyList(phoneNumberId, from, session.pending_category, city, env);
   }
 
-  const category = classify(text);
+  const category = await classifyWithAI(env, text);
   const city = extractCity(text);
 
   await setSession(env, from, {
@@ -579,4 +579,32 @@ async function setSession(env, chatId, data) {
 
 async function clearSession(env, chatId) {
   await env.DB.prepare("DELETE FROM sessions WHERE chat_id=?").bind(chatId).run();
+}
+async function classifyWithAI(env, text) {
+  try {
+    const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
+      messages: [
+        {
+          role: "system",
+          content:
+            "אתה מסווג בקשות עזרה למשפחות מילואימניקים. החזר רק מילה אחת מתוך: plumbing, electricity, air_conditioning, transportation, childcare, food, medical, errands, household, emotional, tutoring, general."
+        },
+        {
+          role: "user",
+          content: text
+        }
+      ]
+    });
+
+    const category = String(result.response || "").trim();
+
+    if (CATEGORY_HEBREW[category]) {
+      return category;
+    }
+
+    return classify(text);
+  } catch (err) {
+    console.error("AI classify error:", err?.message || err);
+    return classify(text);
+  }
 }
