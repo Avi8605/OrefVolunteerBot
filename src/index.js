@@ -20,6 +20,20 @@ const URGENCY_HEBREW = {
   low: "לא דחוף"
 };
 
+const VOLUNTEER_SKILLS = {
+  electricity: "⚡ חשמל",
+  plumbing: "🚰 אינסטלציה",
+  air_conditioning: "❄️ מיזוג אוויר",
+  transportation: "🚗 הסעות",
+  childcare: "👶 שמירה על ילדים",
+  food: "🍲 אוכל וקניות",
+  household: "🏠 עזרה בבית",
+  errands: "📦 סידורים ושליחויות",
+  medical: "🩺 סיוע רפואי ותרופות",
+  emotional: "💙 תמיכה רגשית",
+  general: "🔨 עזרה כללית בבית"
+};
+
 const URGENCY_EMOJI = {
   critical: "🚨",
   high: "⚠️",
@@ -201,12 +215,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
       session.step = "skills";
       await setSession(env, from, session);
 
-      return sendTxt(
-        phoneNumberId,
-        from,
-        "באילו תחומים תרצה להתנדב?\n\nלדוגמה:\nהסעות, אוכל, חשמל, שמירה על ילדים, סידורים",
-        env
-      );
+      return sendVolunteerSkillsList(phoneNumberId, from, env);
     }
 
     if (session.step === "skills") {
@@ -505,7 +514,42 @@ async function sendCategoryConfirmButtons(phoneNumberId, to, category, env) {
     env
   );
 }
+async function sendVolunteerSkillsList(phoneNumberId, to, env) {
+  const token = await env.WHATSAPP_TOKEN.get();
 
+  const rows = Object.entries(VOLUNTEER_SKILLS).map(([id, title]) => ({
+    id: `volskill_${id}`,
+    title: title.slice(0, 24)
+  }));
+
+  const res = await fetch(`https://graph.facebook.com/v18.0/${phoneNumberId}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to,
+      type: "interactive",
+      interactive: {
+        type: "list",
+        header: { type: "text", text: "תחום התנדבות" },
+        body: { text: "בחר את תחום ההתנדבות המרכזי שלך:" },
+        action: {
+          button: "בחר תחום",
+          sections: [{ title: "תחומי התנדבות", rows }]
+        }
+      }
+    })
+  });
+
+  const result = await res.text();
+  console.log("sendVolunteerSkillsList status:", res.status);
+  console.log("sendVolunteerSkillsList result:", result);
+
+  return res.ok;
+}
 async function sendCategoryList(phoneNumberId, to, env) {
   const token = await env.WHATSAPP_TOKEN.get();
 
