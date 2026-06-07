@@ -113,6 +113,168 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
   if (!text) return;
 
   const lowerText = text.toLowerCase().trim();
+  const ADMIN_PHONE = "972533400219";
+
+  // Admin approve volunteer
+  if (from === ADMIN_PHONE && lowerText.startsWith("אשר ")) {
+    const volunteerId = Number(lowerText.replace("אשר", "").trim());
+
+    const vol = await env.DB.prepare(
+      "SELECT * FROM volunteers WHERE id=?"
+    ).bind(volunteerId).first();
+
+    if (!vol) {
+      return sendTxt(phoneNumberId, from, "לא נמצא מתנדב עם מספר זה.", env);
+    }
+
+    await env.DB.prepare(
+      "UPDATE volunteers SET approved=1, rejected=0, approved_at=?, updated_at=? WHERE id=?"
+    ).bind(nowIso(), nowIso(), volunteerId).run();
+
+    await sendTxt(
+      phoneNumberId,
+      vol.phone,
+      "🎉 בקשת ההתנדבות שלך אושרה!\n\nתודה שהצטרפת למערך המתנדבים.",
+      env
+    );
+
+    return sendTxt(phoneNumberId, from, `✅ המתנדב ${vol.name} אושר בהצלחה.`, env);
+  }
+
+  // Admin reject volunteer
+  if (from === ADMIN_PHONE && lowerText.startsWith("דחה ")) {
+    const volunteerId = Number(lowerText.replace("דחה", "").trim());
+
+    const vol = await env.DB.prepare(
+      "SELECT * FROM volunteers WHERE id=?"
+    ).bind(volunteerId).first();
+
+    if (!vol) {
+      return sendTxt(phoneNumberId, from, "לא נמצא מתנדב עם מספר זה.", env);
+    }
+
+    await env.DB.prepare(
+      "UPDATE volunteers SET approved=0, rejected=1, updated_at=? WHERE id=?"
+    ).bind(nowIso(), volunteerId).run();
+
+    await sendTxt(
+      phoneNumberId,
+      vol.phone,
+      "בקשת ההתנדבות שלך לא אושרה בשלב זה. תודה על הרצון הטוב.",
+      env
+    );
+
+    return sendTxt(phoneNumberId, from, `❌ המתנדב ${vol.name} נדחה.`, env);
+  }
+
+  // Start volunteer signup
+  if (lowerText === "הצטרפות") {
+    await setSession(env, from, {
+      volunteer_signup: true,
+      step: "name",
+      last_interaction: nowIso()
+    });
+
+    return sendTxt(
+      phoneNumberId,
+      from,
+      "ברוכים הבאים למערך המתנדבים 🇮🇱\n\nמה שמך המלא?",
+      env
+    );
+  }
+
+  const session = await getSession(env, from);
+  session.last_interaction = nowIso();
+
+  // Volunteer signup flow
+  if (session.volunteer_signup) {
+    if (session.step === "name") {
+      session.name = text.trim();
+      session.step = "city";
+      await setSession(env, from, session);
+
+      return sendTxt(phoneNumberId, from, "באיזו עיר אתה גר?", env);
+    }
+
+    if (session.step === "city") {
+      session.city = text.trim();
+      session.step = "skills";
+      await setSession(env, from, session);
+
+      return sendTxt(
+        phoneNumberId,
+        from,
+        "באילו תחומים תרצה להתנדב?\n\nלדוגמה:\nהסעות, אוכל, חשמל, שמירה על ילדים, סידורים",
+        env
+      );
+    }
+
+    if (session.step === "skills") {
+      const skillsText = text.trim();
+
+      const existing = await env.DB.prepare(
+        "SELECT * FROM volunteers WHERE phone=?"
+      ).bind(from).first();
+
+      if (existing) {
+        await env.DB.prepare(
+          "UPDATE volunteers SET name=?, city=?, skills=?, approved=0, rejected=0, available=1, updated_at=? WHERE phone=?"
+        ).bind(
+          session.name,
+          session.city,
+          JSON.stringify([skillsText]),
+          nowIso(),
+          from
+        ).run();
+
+        await clearSession(env, from);
+
+        await sendTxt(
+          phoneNumberId,
+          from,
+          "תודה! הפרטים שלך עודכנו ונשלחו שוב לאישור.",
+          env
+        );
+
+        return sendTxt(
+          phoneNumberId,
+          ADMIN_PHONE,
+          `🆕 בקשת התנדבות עודכנה\n\n#${existing.id}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${skillsText}\n\nלאישור כתוב:\nאשר ${existing.id}\n\nלדחייה כתוב:\nדחה ${existing.id}`,
+          env
+        );
+      }
+
+      const result = await env.DB.prepare(`
+        INSERT INTO volunteers
+        (name, phone, city, skills, approved, rejected, available, assignment_count, created_at)
+        VALUES (?, ?, ?, ?, 0, 0, 1, 0, ?)
+      `).bind(
+        session.name,
+        from,
+        session.city,
+        JSON.stringify([skillsText]),
+        nowIso()
+      ).run();
+
+      const volunteerId = result.meta.last_row_id;
+
+      await clearSession(env, from);
+
+      await sendTxt(
+        phoneNumberId,
+        from,
+        "תודה! בקשת ההתנדבות שלך נשלחה לאישור.",
+        env
+      );
+
+      return sendTxt(
+        phoneNumberId,
+        ADMIN_PHONE,
+        `🆕 מתנדב חדש\n\n#${volunteerId}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${skillsText}\n\nלאישור כתוב:\nאשר ${volunteerId}\n\nלדחייה כתוב:\nדחה ${volunteerId}`,
+        env
+      );
+    }
+  }
 
   if (lowerText === "ביטול" || lowerText === "/cancel") {
     await clearSession(env, from);
@@ -128,7 +290,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
     return sendTxt(
       phoneNumberId,
       from,
-      `שלום ${firstName}! 👋\n\nאני בוט עזרה למשפחות מילואימניקים.\n\nכתבו לי בהודעה חופשית מה אתם צריכים, לדוגמה:\n• יש לנו קצר בחשמל בבית\n• צריכים בייביסיטר לילדים בערב\n• מחפשים מישהו שיקנה לנו תרופות\n\nלמחיקה/התחלה מחדש כתבו: ביטול`,
+      `שלום ${firstName}! 👋\n\nאני בוט עזרה למשפחות מילואימניקים.\n\nלהצטרפות כמתנדב כתבו: הצטרפות\n\nאו כתבו לי בהודעה חופשית מה אתם צריכים.`,
       env
     );
   }
@@ -138,13 +300,10 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
     return sendTxt(
       phoneNumberId,
       from,
-      `שלום ${firstName}! 👋\n\nכתבו לי מה אתם צריכים, למשל:\n• יש לנו נזילה במטבח\n• צריכים הסעה לבית החולים\n• מחפשים בייביסיטר לערב`,
+      `שלום ${firstName}! 👋\n\nלהצטרפות כמתנדב כתבו: הצטרפות\n\nלבקשת עזרה כתבו מה אתם צריכים.`,
       env
     );
   }
-
-  const session = await getSession(env, from);
-  session.last_interaction = nowIso();
 
   if (session.awaiting_city) {
     const city = extractCity(text);
@@ -183,7 +342,6 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
 
   return sendCategoryConfirmButtons(phoneNumberId, from, category, env);
 }
-
 async function handleWhatsAppInteractive(phoneNumberId, from, interactive, env) {
   if (interactive.type === "button_reply") {
     const buttonId = interactive.button_reply.id;
