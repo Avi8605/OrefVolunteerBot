@@ -1,18 +1,3 @@
-const CATEGORY_HEBREW = {
-  plumbing: "אינסטלציה",
-  electricity: "חשמל",
-  air_conditioning: "מזגן / קירור",
-  transportation: "הסעה / שינוע",
-  childcare: "שמירה על ילדים",
-  food: "אוכל / קניות",
-  medical: "תרופות / סיוע רפואי",
-  errands: "סידורים ושליחויות",
-  household: "עזרה בבית",
-  emotional: "תמיכה ושיחה",
-  tutoring: "עזרה בלימודים",
-  general: "כללי"
-};
-
 const URGENCY_HEBREW = {
   critical: "קריטי",
   high: "דחוף",
@@ -34,6 +19,9 @@ const VOLUNTEER_SKILLS = {
   general: "🔨 עזרה כללית בבית"
 };
 
+const CATEGORY_HEBREW = VOLUNTEER_SKILLS;
+
+
 const URGENCY_EMOJI = {
   critical: "🚨",
   high: "⚠️",
@@ -52,7 +40,6 @@ const KEYWORDS = {
   errands: ["סידורים", "דואר", "בנק", "לקנות", "חבילה", "מסמכים", "טפסים", "עירייה", "שליחות"],
   household: ["ניקיון", "כביסה", "כלים", "סידור הבית", "רהיט", "הרכבה", "מדף", "ארון", "גינה"],
   emotional: ["לדבר", "שיחה", "תמיכה", "בודדה", "קשה לי", "לחץ", "חרדה", "פחד", "עידוד", "אוזן קשבת"],
-  tutoring: ["לימודים", "שיעורי בית", "מורה פרטי", "מתמטיקה", "אנגלית", "קריאה", "כתיבה"]
 };
 
 const CITIES = [
@@ -370,14 +357,16 @@ async function handleWhatsAppInteractive(phoneNumberId, from, interactive, env) 
       return sendUrgencyList(phoneNumberId, from, session.pending_category, session.pending_city, env);
     }
 
-    if (buttonId === "confirm_category_no") {
-      const session = await getSession(env, from);
-      session.awaiting_category_confirm = false;
-      session.awaiting_manual_category = true;
-      await setSession(env, from, session);
+if (buttonId === "confirm_category_no") {
+  await clearSession(env, from);
 
-      return sendCategoryList(phoneNumberId, from, env);
-    }
+  return sendTxt(
+    phoneNumberId,
+    from,
+    "אין בעיה 👍\n\nכתבו שוב בקצרה מה אתם צריכים, למשל:\nיש נזילה במטבח בנתיבות\nאו:\nצריך הסעה לבית חולים מנתיבות",
+    env
+  );
+}
 
     const parts = buttonId.split("_");
     if (parts.length < 3) return;
@@ -438,24 +427,66 @@ async function handleWhatsAppInteractive(phoneNumberId, from, interactive, env) 
 
   if (interactive.type === "list_reply") {
     const selectedId = interactive.list_reply.id;
+    if (selectedId.startsWith("volskill_")) {
+  const skill = selectedId.replace("volskill_", "");
+  const session = await getSession(env, from);
 
-    if (selectedId.startsWith("cat_")) {
-      const category = selectedId.replace("cat_", "");
-      const session = await getSession(env, from);
+  if (!session.volunteer_signup) {
+    return sendTxt(phoneNumberId, from, "לא נמצאה הרשמת מתנדב פעילה. כתוב: הצטרפות", env);
+  }
 
-      session.pending_category = category;
-      session.awaiting_manual_category = false;
+  const existing = await env.DB.prepare(
+    "SELECT * FROM volunteers WHERE phone=?"
+  ).bind(from).first();
 
-      if (!session.pending_city) {
-        session.awaiting_city = true;
-        await setSession(env, from, session);
-        return sendTxt(phoneNumberId, from, "באיזו עיר אתם נמצאים?", env);
-      }
+  if (existing) {
+    await env.DB.prepare(
+      "UPDATE volunteers SET name=?, city=?, skills=?, approved=0, rejected=0, available=1, updated_at=? WHERE phone=?"
+    ).bind(
+      session.name,
+      session.city,
+      JSON.stringify([skill]),
+      nowIso(),
+      from
+    ).run();
 
-      await setSession(env, from, session);
-      return sendUrgencyList(phoneNumberId, from, category, session.pending_city, env);
-    }
+    await clearSession(env, from);
 
+    await sendTxt(phoneNumberId, from, "תודה! הפרטים שלך עודכנו ונשלחו שוב לאישור.", env);
+
+    return sendTxt(
+      phoneNumberId,
+      "972533400219",
+      `🆕 בקשת התנדבות עודכנה\n\n#${existing.id}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${VOLUNTEER_SKILLS[skill]}\n\nלאישור כתוב:\nאשר ${existing.id}\n\nלדחייה כתוב:\nדחה ${existing.id}`,
+      env
+    );
+  }
+
+  const result = await env.DB.prepare(`
+    INSERT INTO volunteers
+    (name, phone, city, skills, approved, rejected, available, assignment_count, created_at)
+    VALUES (?, ?, ?, ?, 0, 0, 1, 0, ?)
+  `).bind(
+    session.name,
+    from,
+    session.city,
+    JSON.stringify([skill]),
+    nowIso()
+  ).run();
+
+  const volunteerId = result.meta.last_row_id;
+
+  await clearSession(env, from);
+
+  await sendTxt(phoneNumberId, from, "תודה! בקשת ההתנדבות שלך נשלחה לאישור.", env);
+
+  return sendTxt(
+    phoneNumberId,
+    "972533400219",
+    `🆕 מתנדב חדש\n\n#${volunteerId}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${VOLUNTEER_SKILLS[skill]}\n\nלאישור כתוב:\nאשר ${volunteerId}\n\nלדחייה כתוב:\nדחה ${volunteerId}`,
+    env
+  );
+}
     const urgency = selectedId;
     const session = await getSession(env, from);
 
@@ -550,56 +581,6 @@ async function sendVolunteerSkillsList(phoneNumberId, to, env) {
 
   return res.ok;
 }
-async function sendCategoryList(phoneNumberId, to, env) {
-  const token = await env.WHATSAPP_TOKEN.get();
-
-  const allowedCategories = [
-    "plumbing",
-    "electricity",
-    "air_conditioning",
-    "transportation",
-    "childcare",
-    "food",
-    "medical",
-    "errands",
-    "household",
-    "general"
-  ];
-
-  const rows = allowedCategories.map((id) => ({
-    id: `cat_${id}`,
-    title: CATEGORY_HEBREW[id].slice(0, 24)
-  }));
-
-  const res = await fetch(`https://graph.facebook.com/v18.0/${phoneNumberId}/messages`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to,
-      type: "interactive",
-      interactive: {
-        type: "list",
-        header: { type: "text", text: "בחירת סוג עזרה" },
-        body: { text: "בחרו את סוג העזרה המתאים מהרשימה:" },
-        action: {
-          button: "בחר סוג",
-          sections: [{ title: "סוגי עזרה", rows }]
-        }
-      }
-    })
-  });
-
-  const result = await res.text();
-  console.log("sendCategoryList status:", res.status);
-  console.log("sendCategoryList result:", result);
-
-  return res.ok;
-}
-
 async function sendTxt(phoneNumberId, to, text, env) {
   const token = await env.WHATSAPP_TOKEN.get();
 
@@ -804,7 +785,7 @@ async function classifyWithAI(env, text) {
         {
           role: "system",
           content:
-            "You are a strict text classifier. Return exactly one category key and nothing else. Allowed categories: plumbing, electricity, air_conditioning, transportation, childcare, food, medical, errands, household, emotional, tutoring, general. Do not explain. Do not answer the user. Output only one allowed category key."
+            "You are a strict text classifier. Return exactly one category key and nothing else. Allowed categories: plumbing, electricity, air_conditioning, transportation, childcare, food, medical, errands, household, emotional, general. Do not explain. Do not answer the user. Output only one allowed category key."
         },
         {
           role: "user",
