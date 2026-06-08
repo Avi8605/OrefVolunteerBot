@@ -61,7 +61,27 @@ const CITY_GROUPS = [
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    // Requests API
+    if (request.method === "GET" && url.pathname === "/api/requests") {
+      const result = await env.DB.prepare(`
+        SELECT *
+        FROM requests  
+        ORDER BY created_at DESC
+      `).all();
 
+      return Response.json(result.results || []);
+    }
+
+// Volunteers API
+    if (request.method === "GET" && url.pathname === "/api/volunteers") {
+      const result = await env.DB.prepare(`  
+        SELECT *
+        FROM volunteers
+        ORDER BY created_at DESC
+      `).all();
+
+      return Response.json(result.results || []);
+    }
     if (request.method === "GET") {
       const mode = url.searchParams.get("hub.mode");
       const token = url.searchParams.get("hub.verify_token");
