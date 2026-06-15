@@ -316,7 +316,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
     return sendTxt(
       phoneNumberId,
       from,
-      `שלום ${firstName}! 👋\n\nלהצטרפות כמתנדב כתבו: הצטרפות\n\nלבקשת עזרה כתבו מה אתם צריכים.`,
+      `שלום ${firstName}! 👋\n\nאני בוט עזרה למשפחות מילואימניקים.\n\nלהצטרפות כמתנדב כתבו: הצטרפות\n\nאו כתבו לי בהודעה חופשית מה אתם צריכים.`,
       env
     );
   }
