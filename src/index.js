@@ -54,7 +54,9 @@ const CITIES = [
   "בת ים", "ראש העין", "מודיעין", "לוד", "רעננה", "רהט", "בית שמש", "טבריה",
   "עכו", "נצרת", "דימונה", "שדרות", "נתיבות", "ביתר עילית", "גבעתיים",
   "כרמיאל", "נהריה", "קריית גת", "חדרה", "יבנה", "אופקים",
+
   "קריית אתא", "קריית מוצקין",
+
   "קריית ים", "קריית ביאליק", "קריית שמונה", "קריית מלאכי", "קריית אונו",
   "אילת", "צפת", "מעלות תרשיחא", "קצרין", "אור יהודה", "גן יבנה",
   "נשר", "טירת כרמל", "זכרון יעקב", "בנימינה", "פרדס חנה כרכור",
@@ -172,7 +174,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
     ).bind(volunteerId).first();
 
     if (!vol) {
-      return sendTxt(phoneNumberId, from, "לא נמצא בעל מקצוע עם מספר זה.", env);
+      return sendTxt(phoneNumberId, from, "לא נמצא בעל מקצוע עם מספר זה במערכת.", env);
     }
 
     await env.DB.prepare(
@@ -182,11 +184,11 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
     await sendTxt(
       phoneNumberId,
       vol.phone,
-      "🎉 בקשת ההצטרפות שלך אושרה!\n\nתודה שהצטרפת למערך בעלי המקצוע.",
+      "🎉 בקשתך אושרה!\n\nאתה עכשיו חלק ממערך בעלי המקצוע של OREF, שעומד לצד משפחות המילואימניקים בזמן השירות. תודה שבחרת לקחת חלק.",
       env
     );
 
-    return sendTxt(phoneNumberId, from, `✅ בעל המקצוע ${vol.name} אושר בהצלחה.`, env);
+    return sendTxt(phoneNumberId, from, `✅ ${vol.name} אושר ומצטרף למערך.`, env);
   }
 
   if (from === ADMIN_PHONE && lowerText.startsWith("דחה ")) {
@@ -197,7 +199,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
     ).bind(volunteerId).first();
 
     if (!vol) {
-      return sendTxt(phoneNumberId, from, "לא נמצא בעל מקצוע עם מספר זה.", env);
+      return sendTxt(phoneNumberId, from, "לא נמצא בעל מקצוע עם מספר זה במערכת.", env);
     }
 
     await env.DB.prepare(
@@ -207,11 +209,11 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
     await sendTxt(
       phoneNumberId,
       vol.phone,
-      "בקשת ההצטרפות שלך לא אושרה בשלב זה. תודה על הרצון הטוב.",
+      "תודה שפנית להצטרף למערך בעלי המקצוע של OREF. בשלב זה לא נוכל לאשר את הבקשה, אך אנו מעריכים מאוד את הרצון שלך לעזור למשפחות המילואימניקים.",
       env
     );
 
-    return sendTxt(phoneNumberId, from, `❌ בעל המקצוע ${vol.name} נדחה.`, env);
+    return sendTxt(phoneNumberId, from, `❌ ${vol.name} נדחה.`, env);
   }
 
   if (lowerText === "הצטרפות") {
@@ -224,7 +226,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
     return sendTxt(
       phoneNumberId,
       from,
-      "ברוכים הבאים למערך בעלי המקצוע 🇮🇱\n\nמה שמך המלא?",
+      "ברוכים הבאים למערך בעלי המקצוע של OREF 🇮🇱\n\nאתם עומדים לקחת חלק ממשי בעורף הביתי, ולעמוד לצד משפחות שבן או בת הזוג שלהן משרתים במילואים.\n\nכדי להתחיל, מה שמך המלא?",
       env
     );
   }
@@ -238,7 +240,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
       session.step = "city";
       await setSession(env, from, session);
 
-      return sendTxt(phoneNumberId, from, "באיזו עיר אתה גר?", env);
+      return sendTxt(phoneNumberId, from, "מעולה. באיזו עיר אתה נמצא? כך נוכל לחבר אותך למשפחות הקרובות אליך.", env);
     }
 
     if (session.step === "city") {
@@ -249,7 +251,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
         return sendTxt(
           phoneNumberId,
           from,
-          "לא הצלחתי לזהות את העיר. כתבו את שם העיר במפורש, למשל: תל אביב, חיפה, באר שבע.",
+          "לא הצלחתי לזהות את העיר. אפשר לכתוב את שם העיר במפורש, למשל: תל אביב, חיפה, באר שבע.",
           env
         );
       }
@@ -284,14 +286,14 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
         await sendTxt(
           phoneNumberId,
           from,
-          "תודה! הפרטים שלך עודכנו ונשלחו שוב לאישור.",
+          "תודה! הפרטים שלך עודכנו ונשלחו לאישור מחדש. נעדכן אותך בקרוב.",
           env
         );
 
         return sendTxt(
           phoneNumberId,
           ADMIN_PHONE,
-          `🆕 בקשת הצטרפות עודכנה\n\n#${existing.id}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${skillsText}\n\nלאישור כתוב:\nאשר ${existing.id}\n\nלדחייה כתוב:\nדחה ${existing.id}`,
+          `🆕 פרטי בעל מקצוע עודכנו\n\n#${existing.id}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${skillsText}\n\nלאישור כתוב:\nאשר ${existing.id}\n\nלדחייה כתוב:\nדחה ${existing.id}`,
           env
         );
       }
@@ -315,14 +317,14 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
       await sendTxt(
         phoneNumberId,
         from,
-        "תודה! בקשת ההצטרפות שלך נשלחה לאישור.",
+        "תודה שהצטרפת! הבקשה שלך נשלחה לאישור, ונחזור אליך בקרוב כדי לצרף אותך רשמית למערך.",
         env
       );
 
       return sendTxt(
         phoneNumberId,
         ADMIN_PHONE,
-        `🆕 בעל מקצוע חדש\n\n#${volunteerId}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${skillsText}\n\nלאישור כתוב:\nאשר ${volunteerId}\n\nלדחייה כתוב:\nדחה ${volunteerId}`,
+        `🆕 בעל מקצוע חדש מבקש להצטרף\n\n#${volunteerId}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${skillsText}\n\nלאישור כתוב:\nאשר ${volunteerId}\n\nלדחייה כתוב:\nדחה ${volunteerId}`,
         env
       );
     }
@@ -334,7 +336,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
       "UPDATE requests SET status='cancelled', updated_at=? WHERE phone=? AND status IN ('searching','assigned')"
     ).bind(nowIso(), from).run();
 
-    return sendTxt(phoneNumberId, from, "הבקשה הפעילה שלכם בוטלה בהצלחה.", env);
+    return sendTxt(phoneNumberId, from, "הבקשה הפעילה שלכם בוטלה. אנחנו כאן בכל עת שתצטרכו.", env);
   }
 
   if (lowerText === "/start" || lowerText === "start" || lowerText === "התחל") {
@@ -342,7 +344,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
     return sendTxt(
       phoneNumberId,
       from,
-      `שלום ${firstName}! 👋\n\nאני בוט עזרה למשפחות מילואימניקים.\n\nלהצטרפות כבעל מקצוע כתבו: הצטרפות\n\nאו כתבו לי בהודעה חופשית מה אתם צריכים.`,
+      `שלום ${firstName} 👋\n\nכאן OREF — אנחנו כאן בשבילך ובשביל המשפחה, בזמן ששירות המילואים ממשיך.\n\nכתבו בהודעה חופשית מה אתם צריכים, ונדאג למצוא בעל מקצוע מתאים בקרבת מקום.\n\nרוצים לעזור כבעלי מקצוע למשפחות אחרות? כתבו: הצטרפות`,
       env
     );
   }
@@ -352,7 +354,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
     return sendTxt(
       phoneNumberId,
       from,
-      `שלום ${firstName}! 👋\n\nאני בוט עזרה למשפחות מילואימניקים.\n\nלהצטרפות כבעל מקצוע כתבו: הצטרפות\n\nאו כתבו לי בהודעה חופשית מה אתם צריכים.`,
+      `שלום ${firstName} 👋\n\nכאן OREF — אנחנו כאן בשבילך ובשביל המשפחה, בזמן ששירות המילואים ממשיך.\n\nכתבו בהודעה חופשית מה אתם צריכים, ונדאג למצוא בעל מקצוע מתאים בקרבת מקום.\n\nרוצים לעזור כבעלי מקצוע למשפחות אחרות? כתבו: הצטרפות`,
       env
     );
   }
@@ -364,7 +366,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
       return sendTxt(
         phoneNumberId,
         from,
-        "לא הצלחתי לזהות עיר. כתבו את שם העיר במפורש, למשל: תל אביב, באר שבע, ירושלים, נתיבות.",
+        "לא הצלחתי לזהות את העיר. אפשר לכתוב את שם העיר במפורש, למשל: תל אביב, באר שבע, ירושלים, נתיבות.",
         env
       );
     }
@@ -406,7 +408,7 @@ async function handleWhatsAppInteractive(phoneNumberId, from, interactive, env) 
       if (!session.pending_city) {
         session.awaiting_city = true;
         await setSession(env, from, session);
-        return sendTxt(phoneNumberId, from, "באיזו עיר אתם נמצאים?", env);
+        return sendTxt(phoneNumberId, from, "באיזו עיר אתם נמצאים? כך נמצא בעל מקצוע קרוב אליכם.", env);
       }
 
       await setSession(env, from, session);
@@ -419,7 +421,7 @@ if (buttonId === "confirm_category_no") {
   return sendTxt(
     phoneNumberId,
     from,
-    "אין בעיה 👍\n\nכתבו שוב בקצרה מה אתם צריכים, למשל:\nיש נזילה במטבח בנתיבות\nאו:\nצריך הסעה לבית חולים מנתיבות",
+    "אין בעיה 👍\n\nכתבו שוב, בקצרה, מה אתם צריכים — לדוגמה:\nיש נזילה במטבח בנתיבות\nאו:\nצריך הסעה לבית חולים מנתיבות",
     env
   );
 }
@@ -438,7 +440,7 @@ if (buttonId === "confirm_category_no") {
 
     if (action === "accept") {
       if (req.status === "assigned") {
-        return sendTxt(phoneNumberId, from, "בקשה זו כבר שויכה לבעל מקצוע אחר. תודה על הרצון הטוב! 💙", env);
+        return sendTxt(phoneNumberId, from, "תודה רבה על הנכונות לעזור — בקשה זו כבר שויכה לבעל מקצוע אחר. 💙", env);
       }
 
       const assigned = JSON.stringify({
@@ -460,14 +462,14 @@ if (buttonId === "confirm_category_no") {
       await sendTxt(
         phoneNumberId,
         vol.phone,
-        `✅ *תודה רבה! הבקשה שויכה אליך.*\n\n*פרטי המשפחה:*\nשם: ${req.name}\nטלפון: ${req.phone}\nעיר: ${req.city}\nתיאור: ${req.description}`,
+        `✅ *תודה רבה — הבקשה שויכה אליך.*\n\nמשפחה שמישהו ממנה משרת במילואים זקוקה לעזרתך. הנה הפרטים:\n\nשם: ${req.name}\nטלפון: ${req.phone}\nעיר: ${req.city}\nתיאור: ${req.description}\n\nניתן ליצור קשר ישירות.`,
         env
       );
 
       await sendTxt(
         phoneNumberId,
         req.phone,
-        `🎉 בשורות טובות! נמצא בעל מקצוע לבקשתכם (${req.id}). בעל המקצוע ${vol.name} ייצור עמכם קשר בהקדם.`,
+        `🎉 בשורות טובות! מצאנו בעל מקצוע לבקשתכם (${req.id}).\n\n${vol.name} ייצור עמכם קשר בהקדם.`,
         env
       );
     }
@@ -477,7 +479,7 @@ if (buttonId === "confirm_category_no") {
         "UPDATE volunteers SET available=0, updated_at=? WHERE id=?"
       ).bind(nowIso(), vol.id).run();
 
-      return sendTxt(phoneNumberId, from, `אין בעיה, ${vol.name}. סומנת כלא זמין זמנית.`, env);
+      return sendTxt(phoneNumberId, from, `אין בעיה, ${vol.name} — סומנת כלא זמין כרגע, ונפנה אליך בפעם הבאה.`, env);
     }
   }
 
@@ -494,7 +496,7 @@ if (buttonId === "confirm_category_no") {
       const session = await getSession(env, from);
 
       if (!session.volunteer_signup) {
-        return sendTxt(phoneNumberId, from, "לא נמצאה הרשמת בעל מקצוע פעילה. כתוב: הצטרפות", env);
+        return sendTxt(phoneNumberId, from, "לא נמצאה הרשמה פעילה. כתבו: הצטרפות, כדי להתחיל.", env);
       }
 
       const existing = await env.DB.prepare(
@@ -514,12 +516,12 @@ if (buttonId === "confirm_category_no") {
 
         await clearSession(env, from);
 
-        await sendTxt(phoneNumberId, from, "תודה! הפרטים שלך עודכנו ונשלחו שוב לאישור.", env);
+        await sendTxt(phoneNumberId, from, "תודה! הפרטים שלך עודכנו ונשלחו לאישור מחדש. נעדכן אותך בקרוב.", env);
 
         return sendTxt(
           phoneNumberId,
           "972533400219",
-          `🆕 בקשת הצטרפות עודכנה\n\n#${existing.id}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${VOLUNTEER_SKILLS[skill]}\n\nלאישור כתוב:\nאשר ${existing.id}\n\nלדחייה כתוב:\nדחה ${existing.id}`,
+          `🆕 פרטי בעל מקצוע עודכנו\n\n#${existing.id}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${VOLUNTEER_SKILLS[skill]}\n\nלאישור כתוב:\nאשר ${existing.id}\n\nלדחייה כתוב:\nדחה ${existing.id}`,
           env
         );
       }
@@ -540,12 +542,12 @@ if (buttonId === "confirm_category_no") {
 
       await clearSession(env, from);
 
-      await sendTxt(phoneNumberId, from, "תודה! בקשת ההצטרפות שלך נשלחה לאישור.", env);
+      await sendTxt(phoneNumberId, from, "תודה שהצטרפת! הבקשה שלך נשלחה לאישור, ונחזור אליך בקרוב כדי לצרף אותך רשמית למערך.", env);
 
       return sendTxt(
         phoneNumberId,
         "972533400219",
-        `🆕 בעל מקצוע חדש\n\n#${volunteerId}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${VOLUNTEER_SKILLS[skill]}\n\nלאישור כתוב:\nאשר ${volunteerId}\n\nלדחייה כתוב:\nדחה ${volunteerId}`,
+        `🆕 בעל מקצוע חדש מבקש להצטרף\n\n#${volunteerId}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${VOLUNTEER_SKILLS[skill]}\n\nלאישור כתוב:\nאשר ${volunteerId}\n\nלדחייה כתוב:\nדחה ${volunteerId}`,
         env
       );
     }
@@ -554,7 +556,7 @@ if (buttonId === "confirm_category_no") {
     const session = await getSession(env, from);
 
     if (!session.pending_description) {
-      return sendTxt(phoneNumberId, from, "הפנייה לא נמצאה במערכת. נא לתאר שוב מה אתם צריכים.", env);
+      return sendTxt(phoneNumberId, from, "לא מצאנו את הפנייה במערכת. אפשר לתאר שוב, בקצרה, מה אתם צריכים.", env);
     }
 
     const req = await createRequest(env, session, urgency);
@@ -566,7 +568,7 @@ if (buttonId === "confirm_category_no") {
       return sendTxt(
         phoneNumberId,
         from,
-        `${URGENCY_EMOJI[urgency] || "📋"} בקשתך התקבלה בהצלחה.\n\nמספר בקשה: ${req.id}\nאין כרגע בעלי מקצוע זמינים בעיר שלך בתחום זה.`,
+        `${URGENCY_EMOJI[urgency] || "📋"} הבקשה שלכם התקבלה.\n\nמספר בקשה: ${req.id}\nכרגע אין בעל מקצוע פנוי בתחום זה באזורכם, אך הבקשה נשארת פתוחה ונעדכן אתכם ברגע שיימצא מישהו.`,
         env
       );
     }
@@ -575,8 +577,8 @@ if (buttonId === "confirm_category_no") {
 
     for (const v of volunteers) {
       const msgForVolunteer =
-        `${URGENCY_EMOJI[urgency]} *בקשת עזרה חדשה!* (${URGENCY_HEBREW[urgency]})\n\n` +
-        `משפחה באזור *${req.city}* צריכה עזרה בתחום *${CATEGORY_HEBREW[req.category] || req.category}*.\n\n` +
+        `${URGENCY_EMOJI[urgency]} *בקשת עזרה ממשפחת מילואימניק* (${URGENCY_HEBREW[urgency]})\n\n` +
+        `משפחה באזור *${req.city}* זקוקה לעזרה בתחום *${CATEGORY_HEBREW[req.category] || req.category}*, בזמן ששירות המילואים ממשיך.\n\n` +
         `*תיאור:* ${req.description}`;
 
       const ok = await sendButtons(phoneNumberId, v.phone, msgForVolunteer, [
@@ -590,7 +592,7 @@ if (buttonId === "confirm_category_no") {
     return sendTxt(
       phoneNumberId,
       from,
-      `${URGENCY_EMOJI[urgency]} בקשתך התקבלה ונרשמה.\n\nמספר: ${req.id}\nסוג: ${CATEGORY_HEBREW[req.category] || req.category}\nעיר: ${req.city}\nדחיפות: ${URGENCY_HEBREW[urgency]}\n\nשלחנו התראה ל-${notified} בעלי מקצוע.`,
+      `${URGENCY_EMOJI[urgency]} הבקשה שלכם התקבלה ונרשמה.\n\nמספר: ${req.id}\nסוג: ${CATEGORY_HEBREW[req.category] || req.category}\nעיר: ${req.city}\nדחיפות: ${URGENCY_HEBREW[urgency]}\n\nפנינו ל-${notified} בעלי מקצוע באזורכם, ונעדכן אתכם ברגע שמישהו יענה.`,
       env
     );
   }
@@ -600,7 +602,7 @@ async function sendCategoryConfirmButtons(phoneNumberId, to, category, env) {
   return sendButtons(
     phoneNumberId,
     to,
-    `זיהיתי שסוג העזרה הוא: *${CATEGORY_HEBREW[category] || category}*.\n\nהאם זה סוג העזרה שהתכוונת אליו?`,
+    `הבנתי שאתם צריכים עזרה בתחום: *${CATEGORY_HEBREW[category] || category}*.\n\nזה נכון?`,
     [
       { id: "confirm_category_yes", title: "✅ כן" },
       { id: "confirm_category_no", title: "❌ לא" }
@@ -642,8 +644,8 @@ async function sendVolunteerSkillsList(phoneNumberId, to, env, pageIndex = 0) {
         header: { type: "text", text: "תחום מקצועי" },
         body: {
           text: hasNextPage
-            ? "בחר את התחום המקצועי המרכזי שלך (חלק 1 מ-2):"
-            : "בחר את התחום המקצועי המרכזי שלך:"
+            ? "באיזה תחום תוכל לעזור למשפחות המילואימניקים? (חלק 1 מ-2)"
+            : "באיזה תחום תוכל לעזור למשפחות המילואימניקים?"
         },
         action: {
           button: "בחר תחום",
@@ -698,9 +700,9 @@ async function sendUrgencyList(phoneNumberId, to, category, city, env) {
       type: "interactive",
       interactive: {
         type: "list",
-        header: { type: "text", text: "שלב אחרון!" },
+        header: { type: "text", text: "שלב אחרון" },
         body: {
-          text: `סוג עזרה: *${CATEGORY_HEBREW[category] || category}*\nעיר: *${city}*\n\nמה רמת הדחיפות של הבקשה?`
+          text: `סוג עזרה: *${CATEGORY_HEBREW[category] || category}*\nעיר: *${city}*\n\nכמה דחוף זה בשבילכם?`
         },
         action: {
           button: "בחר דחיפות",
@@ -843,7 +845,7 @@ function normalizeCity(text) {
   if (trimmed.length < 2 || trimmed.length > 30) return null;
 
   if (/^\d+$/.test(trimmed)) return null;
-  if (/https?:\/\
+  if (/https?:\/\//.test(trimmed)) return null;
   return trimmed;
 }
 
