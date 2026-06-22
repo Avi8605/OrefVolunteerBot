@@ -216,6 +216,11 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
     return sendTxt(phoneNumberId, from, `❌ ${vol.name} נדחה.`, env);
   }
 
+  if (from === ADMIN_PHONE && (lowerText === "סטטיסטיקה" || lowerText === "/stats" || lowerText === "סטטיסטיקות")) {
+    const statsText = await getStatsText(env);
+    return sendTxt(phoneNumberId, from, statsText, env);
+  }
+
   if (lowerText === "הצטרפות") {
     await setSession(env, from, {
       volunteer_signup: true,
@@ -806,6 +811,42 @@ async function findVolunteers(env, city, category) {
     .filter((v) => v.city === city || nearby.includes(v.city))
     .filter((v) => category === "general" || v.skillsArr.includes(category) || v.skillsArr.includes("general"))
     .slice(0, 5);
+}
+
+async function getStatsText(env) {
+  const volunteerTotals = await env.DB.prepare(
+    `SELECT
+      COUNT(*) AS total,
+      SUM(CASE WHEN approved=1 THEN 1 ELSE 0 END) AS approved,
+      SUM(CASE WHEN rejected=1 THEN 1 ELSE 0 END) AS rejected,
+      SUM(CASE WHEN approved=0 AND rejected=0 THEN 1 ELSE 0 END) AS pending,
+      SUM(CASE WHEN approved=1 AND available=1 THEN 1 ELSE 0 END) AS active
+    FROM volunteers`
+  ).first();
+
+  const requestTotals = await env.DB.prepare(
+    `SELECT
+      COUNT(*) AS total,
+      SUM(CASE WHEN status='searching' THEN 1 ELSE 0 END) AS searching,
+      SUM(CASE WHEN status='assigned' THEN 1 ELSE 0 END) AS assigned,
+      SUM(CASE WHEN status='cancelled' THEN 1 ELSE 0 END) AS cancelled
+    FROM requests`
+  ).first();
+
+  return (
+    `📊 *סטטיסטיקה כללית*\n\n` +
+    `*בעלי מקצוע:*\n` +
+    `סה"כ: ${volunteerTotals.total || 0}\n` +
+    `מאושרים: ${volunteerTotals.approved || 0}\n` +
+    `ממתינים לאישור: ${volunteerTotals.pending || 0}\n` +
+    `נדחו: ${volunteerTotals.rejected || 0}\n` +
+    `פעילים וזמינים כרגע: ${volunteerTotals.active || 0}\n\n` +
+    `*בקשות עזרה ממשפחות:*\n` +
+    `סה"כ: ${requestTotals.total || 0}\n` +
+    `בחיפוש אחר בעל מקצוע: ${requestTotals.searching || 0}\n` +
+    `שויכו לבעל מקצוע: ${requestTotals.assigned || 0}\n` +
+    `בוטלו: ${requestTotals.cancelled || 0}`
+  );
 }
 
 function nearbyCities(city) {
