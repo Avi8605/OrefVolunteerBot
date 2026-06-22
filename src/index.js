@@ -21,6 +21,12 @@ const VOLUNTEER_SKILLS = {
 
 const CATEGORY_HEBREW = VOLUNTEER_SKILLS;
 
+const SKILLS_PER_PAGE = 9; // keep comfortably under the 10-row cap per message
+const VOLUNTEER_SKILL_ENTRIES = Object.entries(VOLUNTEER_SKILLS);
+const VOLUNTEER_SKILL_PAGES = [];
+for (let i = 0; i < VOLUNTEER_SKILL_ENTRIES.length; i += SKILLS_PER_PAGE) {
+  VOLUNTEER_SKILL_PAGES.push(VOLUNTEER_SKILL_ENTRIES.slice(i, i + SKILLS_PER_PAGE));
+}
 
 const URGENCY_EMOJI = {
   critical: "🚨",
@@ -47,15 +53,40 @@ const CITIES = [
   "פתח תקווה", "בני ברק", "חולון", "ראשון לציון", "אשקלון", "עפולה", "כפר סבא",
   "בת ים", "ראש העין", "מודיעין", "לוד", "רעננה", "רהט", "בית שמש", "טבריה",
   "עכו", "נצרת", "דימונה", "שדרות", "נתיבות", "ביתר עילית", "גבעתיים",
-  "כרמיאל", "נהריה", "קריית גת", "חדרה", "יבנה", "אופקים"
+  "כרמיאל", "נהריה", "קריית גת", "חדרה", "יבנה", "אופקים",
+  // previously missing, but already referenced in CITY_GROUPS:
+  "קריית אתא", "קריית מוצקין",
+  // additional common cities/towns not previously covered:
+  "קריית ים", "קריית ביאליק", "קריית שמונה", "קריית מלאכי", "קריית אונו",
+  "אילת", "צפת", "מעלות תרשיחא", "קצרין", "אור יהודה", "גן יבנה",
+  "נשר", "טירת כרמל", "זכרון יעקב", "בנימינה", "פרדס חנה כרכור",
+  "אריאל", "מעלה אדומים", "אלעד", "טבעון", "יקנעם", "מגדל העמק",
+  "נוף הגליל", "סח'נין", "שפרעם", "אום אל פחם", "באקה אל גרבייה",
+  "טייבה", "טירה", "כפר קאסם", "ערד", "מצפה רמון", "אבן יהודה",
+  "כוכב יאיר", "הוד השרון", "אבו גוש", "מבשרת ציון", "גבעת שמואל",
+  "אור עקיבא", "בית שאן", "עמק חפר", "משגב", "מטולה"
 ];
+
+const CITY_ALIASES = {
+  "ת\"א": "תל אביב",
+  "תא": "תל אביב",
+  "ב\"ש": "באר שבע",
+  "בש": "באר שבע",
+  "פ\"ת": "פתח תקווה",
+  "פת": "פתח תקווה",
+  "ירושלים עיר העתיקה": "ירושלים",
+  "רמת השרון": "הרצליה" // closest group fallback; adjust if a dedicated group is added
+};
 
 const CITY_GROUPS = [
   ["נתיבות", "שדרות", "באר שבע", "אופקים"],
-  ["תל אביב", "רמת גן", "גבעתיים", "בני ברק", "חולון", "בת ים", "ראשון לציון"],
-  ["ירושלים", "בית שמש", "ביתר עילית"],
-  ["חיפה", "קריית אתא", "קריית מוצקין", "נהריה", "עכו"],
-  ["אשדוד", "אשקלון", "קריית גת"]
+  ["תל אביב", "רמת גן", "גבעתיים", "בני ברק", "חולון", "בת ים", "ראשון לציון", "הרצליה"],
+  ["ירושלים", "בית שמש", "ביתר עילית", "מעלה אדומים", "מבשרת ציון", "אבו גוש"],
+  ["חיפה", "קריית אתא", "קריית מוצקין", "נהריה", "עכו", "קריית ים", "קריית ביאליק", "נשר", "טירת כרמל"],
+  ["אשדוד", "אשקלון", "קריית גת", "קריית מלאכי"],
+  ["נתניה", "כפר סבא", "רעננה", "הוד השרון", "כוכב יאיר", "אבן יהודה"],
+  ["צפת", "קריית שמונה", "מטולה", "מעלות תרשיחא"],
+  ["טבריה", "עפולה", "מגדל העמק", "נוף הגליל", "יקנעם", "בית שאן"]
 ];
 
 export default {
@@ -136,7 +167,6 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
   const lowerText = text.toLowerCase().trim();
   const ADMIN_PHONE = "972533400219";
 
-  // Admin approve volunteer
   if (from === ADMIN_PHONE && lowerText.startsWith("אשר ")) {
     const volunteerId = Number(lowerText.replace("אשר", "").trim());
 
@@ -218,11 +248,23 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
     }
 
     if (session.step === "city") {
-      session.city = text.trim();
+
+      const matchedCity = extractCity(text.trim()) || normalizeCity(text.trim());
+
+      if (!matchedCity) {
+        return sendTxt(
+          phoneNumberId,
+          from,
+          "לא הצלחתי לזהות את העיר. כתבו את שם העיר במפורש, למשל: תל אביב, חיפה, באר שבע.",
+          env
+        );
+      }
+
+      session.city = matchedCity;
       session.step = "skills";
       await setSession(env, from, session);
 
-      return sendVolunteerSkillsList(phoneNumberId, from, env);
+      return sendVolunteerSkillsList(phoneNumberId, from, env, 0);
     }
 
     if (session.step === "skills") {
@@ -322,7 +364,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
   }
 
   if (session.awaiting_city) {
-    const city = extractCity(text);
+    const city = extractCity(text) || normalizeCity(text);
 
     if (!city) {
       return sendTxt(
@@ -343,7 +385,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
   }
 
   const category = await classifyWithAI(env, text);
-  const city = extractCity(text);
+  const city = extractCity(text) || normalizeCity(text);
 
   await setSession(env, from, {
     pending_name: firstName,
@@ -447,66 +489,74 @@ if (buttonId === "confirm_category_no") {
 
   if (interactive.type === "list_reply") {
     const selectedId = interactive.list_reply.id;
+
+
+    if (selectedId.startsWith("volskill_more_")) {
+      const nextPage = Number(selectedId.replace("volskill_more_", ""));
+      return sendVolunteerSkillsList(phoneNumberId, from, env, nextPage);
+    }
+
     if (selectedId.startsWith("volskill_")) {
-  const skill = selectedId.replace("volskill_", "");
-  const session = await getSession(env, from);
+      const skill = selectedId.replace(/^volskill_p\d+_/, "");
+      const session = await getSession(env, from);
 
-  if (!session.volunteer_signup) {
-    return sendTxt(phoneNumberId, from, "לא נמצאה הרשמת מתנדב פעילה. כתוב: הצטרפות", env);
-  }
+      if (!session.volunteer_signup) {
+        return sendTxt(phoneNumberId, from, "לא נמצאה הרשמת מתנדב פעילה. כתוב: הצטרפות", env);
+      }
 
-  const existing = await env.DB.prepare(
-    "SELECT * FROM volunteers WHERE phone=?"
-  ).bind(from).first();
+      const existing = await env.DB.prepare(
+        "SELECT * FROM volunteers WHERE phone=?"
+      ).bind(from).first();
 
-  if (existing) {
-    await env.DB.prepare(
-      "UPDATE volunteers SET name=?, city=?, skills=?, approved=0, rejected=0, available=1, updated_at=? WHERE phone=?"
-    ).bind(
-      session.name,
-      session.city,
-      JSON.stringify([skill]),
-      nowIso(),
-      from
-    ).run();
+      if (existing) {
+        await env.DB.prepare(
+          "UPDATE volunteers SET name=?, city=?, skills=?, approved=0, rejected=0, available=1, updated_at=? WHERE phone=?"
+        ).bind(
+          session.name,
+          session.city,
+          JSON.stringify([skill]),
+          nowIso(),
+          from
+        ).run();
 
-    await clearSession(env, from);
+        await clearSession(env, from);
 
-    await sendTxt(phoneNumberId, from, "תודה! הפרטים שלך עודכנו ונשלחו שוב לאישור.", env);
+        await sendTxt(phoneNumberId, from, "תודה! הפרטים שלך עודכנו ונשלחו שוב לאישור.", env);
 
-    return sendTxt(
-      phoneNumberId,
-      "972533400219",
-      `🆕 בקשת התנדבות עודכנה\n\n#${existing.id}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${VOLUNTEER_SKILLS[skill]}\n\nלאישור כתוב:\nאשר ${existing.id}\n\nלדחייה כתוב:\nדחה ${existing.id}`,
-      env
-    );
-  }
+        return sendTxt(
+          phoneNumberId,
+          "972533400219",
+          `🆕 בקשת התנדבות עודכנה\n\n#${existing.id}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${VOLUNTEER_SKILLS[skill]}\n\nלאישור כתוב:\nאשר ${existing.id}\n\nלדחייה כתוב:\nדחה ${existing.id}`,
+          env
+        );
+      }
 
-  const result = await env.DB.prepare(`
-    INSERT INTO volunteers
-    (name, phone, city, skills, approved, rejected, available, assignment_count, created_at)
-    VALUES (?, ?, ?, ?, 0, 0, 1, 0, ?)
-  `).bind(
-    session.name,
-    from,
-    session.city,
-    JSON.stringify([skill]),
-    nowIso()
-  ).run();
+      const result = await env.DB.prepare(`
+        INSERT INTO volunteers
+        (name, phone, city, skills, approved, rejected, available, assignment_count, created_at)
+        VALUES (?, ?, ?, ?, 0, 0, 1, 0, ?)
+      `).bind(
+        session.name,
+        from,
+        session.city,
+        JSON.stringify([skill]),
+        nowIso()
+      ).run();
 
-  const volunteerId = result.meta.last_row_id;
+      const volunteerId = result.meta.last_row_id;
 
-  await clearSession(env, from);
+      await clearSession(env, from);
 
-  await sendTxt(phoneNumberId, from, "תודה! בקשת ההתנדבות שלך נשלחה לאישור.", env);
+      await sendTxt(phoneNumberId, from, "תודה! בקשת ההתנדבות שלך נשלחה לאישור.", env);
 
-  return sendTxt(
-    phoneNumberId,
-    "972533400219",
-    `🆕 מתנדב חדש\n\n#${volunteerId}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${VOLUNTEER_SKILLS[skill]}\n\nלאישור כתוב:\nאשר ${volunteerId}\n\nלדחייה כתוב:\nדחה ${volunteerId}`,
-    env
-  );
-}
+      return sendTxt(
+        phoneNumberId,
+        "972533400219",
+        `🆕 מתנדב חדש\n\n#${volunteerId}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${VOLUNTEER_SKILLS[skill]}\n\nלאישור כתוב:\nאשר ${volunteerId}\n\nלדחייה כתוב:\nדחה ${volunteerId}`,
+        env
+      );
+    }
+
     const urgency = selectedId;
     const session = await getSession(env, from);
 
@@ -565,13 +615,25 @@ async function sendCategoryConfirmButtons(phoneNumberId, to, category, env) {
     env
   );
 }
-async function sendVolunteerSkillsList(phoneNumberId, to, env) {
+
+
+async function sendVolunteerSkillsList(phoneNumberId, to, env, pageIndex = 0) {
   const token = await env.WHATSAPP_TOKEN.get();
 
-  const rows = Object.entries(VOLUNTEER_SKILLS).map(([id, title]) => ({
-    id: `volskill_${id}`,
+  const page = VOLUNTEER_SKILL_PAGES[pageIndex] || VOLUNTEER_SKILL_PAGES[0];
+  const hasNextPage = pageIndex + 1 < VOLUNTEER_SKILL_PAGES.length;
+
+  const rows = page.map(([id, title]) => ({
+    id: `volskill_p${pageIndex}_${id}`,
     title: title.slice(0, 24)
   }));
+
+  if (hasNextPage) {
+    rows.push({
+      id: `volskill_more_${pageIndex + 1}`,
+      title: "➡️ תחומים נוספים"
+    });
+  }
 
   const res = await fetch(`https://graph.facebook.com/v18.0/${phoneNumberId}/messages`, {
     method: "POST",
@@ -586,7 +648,11 @@ async function sendVolunteerSkillsList(phoneNumberId, to, env) {
       interactive: {
         type: "list",
         header: { type: "text", text: "תחום התנדבות" },
-        body: { text: "בחר את תחום ההתנדבות המרכזי שלך:" },
+        body: {
+          text: hasNextPage
+            ? "בחר את תחום ההתנדבות המרכזי שלך (חלק 1 מ-2):"
+            : "בחר את תחום ההתנדבות המרכזי שלך:"
+        },
         action: {
           button: "בחר תחום",
           sections: [{ title: "תחומי התנדבות", rows }]
@@ -770,7 +836,23 @@ function classify(text) {
 }
 
 function extractCity(text) {
-  return CITIES.sort((a, b) => b.length - a.length).find((c) => text.includes(c)) || null;
+  const direct = [...CITIES].sort((a, b) => b.length - a.length).find((c) => text.includes(c));
+  if (direct) return direct;
+
+  for (const [alias, canonical] of Object.entries(CITY_ALIASES)) {
+    if (text.includes(alias)) return canonical;
+  }
+
+  return null;
+}
+
+function normalizeCity(text) {
+  const trimmed = text.trim();
+  if (trimmed.length < 2 || trimmed.length > 30) return null;
+  // reject inputs that are clearly not a place name (pure numbers, urls, etc.)
+  if (/^\d+$/.test(trimmed)) return null;
+  if (/https?:\/\//.test(trimmed)) return null;
+  return trimmed;
 }
 
 function isSmallTalk(text) {
