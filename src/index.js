@@ -386,7 +386,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
   }
 
   const category = await classifyWithAI(env, text);
-  const city = extractCity(text) || normalizeCity(text);
+  const city = extractCity(text);
 
   await setSession(env, from, {
     pending_name: firstName,
