@@ -21,7 +21,7 @@ const VOLUNTEER_SKILLS = {
 
 const CATEGORY_HEBREW = VOLUNTEER_SKILLS;
 
-const SKILLS_PER_PAGE = 9; // keep comfortably under the 10-row cap per message
+const SKILLS_PER_PAGE = 9;
 const VOLUNTEER_SKILL_ENTRIES = Object.entries(VOLUNTEER_SKILLS);
 const VOLUNTEER_SKILL_PAGES = [];
 for (let i = 0; i < VOLUNTEER_SKILL_ENTRIES.length; i += SKILLS_PER_PAGE) {
@@ -54,9 +54,7 @@ const CITIES = [
   "בת ים", "ראש העין", "מודיעין", "לוד", "רעננה", "רהט", "בית שמש", "טבריה",
   "עכו", "נצרת", "דימונה", "שדרות", "נתיבות", "ביתר עילית", "גבעתיים",
   "כרמיאל", "נהריה", "קריית גת", "חדרה", "יבנה", "אופקים",
-  // previously missing, but already referenced in CITY_GROUPS:
   "קריית אתא", "קריית מוצקין",
-  // additional common cities/towns not previously covered:
   "קריית ים", "קריית ביאליק", "קריית שמונה", "קריית מלאכי", "קריית אונו",
   "אילת", "צפת", "מעלות תרשיחא", "קצרין", "אור יהודה", "גן יבנה",
   "נשר", "טירת כרמל", "זכרון יעקב", "בנימינה", "פרדס חנה כרכור",
@@ -75,7 +73,7 @@ const CITY_ALIASES = {
   "פ\"ת": "פתח תקווה",
   "פת": "פתח תקווה",
   "ירושלים עיר העתיקה": "ירושלים",
-  "רמת השרון": "הרצליה" // closest group fallback; adjust if a dedicated group is added
+  "רמת השרון": "הרצליה"
 };
 
 const CITY_GROUPS = [
@@ -92,20 +90,19 @@ const CITY_GROUPS = [
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    // Requests API
+
     if (request.method === "GET" && url.pathname === "/api/requests") {
       const result = await env.DB.prepare(`
         SELECT *
-        FROM requests  
+        FROM requests
         ORDER BY created_at DESC
       `).all();
 
       return Response.json(result.results || []);
     }
 
-// Volunteers API
     if (request.method === "GET" && url.pathname === "/api/volunteers") {
-      const result = await env.DB.prepare(`  
+      const result = await env.DB.prepare(`
         SELECT *
         FROM volunteers
         ORDER BY created_at DESC
@@ -175,7 +172,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
     ).bind(volunteerId).first();
 
     if (!vol) {
-      return sendTxt(phoneNumberId, from, "לא נמצא מתנדב עם מספר זה.", env);
+      return sendTxt(phoneNumberId, from, "לא נמצא בעל מקצוע עם מספר זה.", env);
     }
 
     await env.DB.prepare(
@@ -185,14 +182,13 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
     await sendTxt(
       phoneNumberId,
       vol.phone,
-      "🎉 בקשת ההתנדבות שלך אושרה!\n\nתודה שהצטרפת למערך המתנדבים.",
+      "🎉 בקשת ההצטרפות שלך אושרה!\n\nתודה שהצטרפת למערך בעלי המקצוע.",
       env
     );
 
-    return sendTxt(phoneNumberId, from, `✅ המתנדב ${vol.name} אושר בהצלחה.`, env);
+    return sendTxt(phoneNumberId, from, `✅ בעל המקצוע ${vol.name} אושר בהצלחה.`, env);
   }
 
-  // Admin reject volunteer
   if (from === ADMIN_PHONE && lowerText.startsWith("דחה ")) {
     const volunteerId = Number(lowerText.replace("דחה", "").trim());
 
@@ -201,7 +197,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
     ).bind(volunteerId).first();
 
     if (!vol) {
-      return sendTxt(phoneNumberId, from, "לא נמצא מתנדב עם מספר זה.", env);
+      return sendTxt(phoneNumberId, from, "לא נמצא בעל מקצוע עם מספר זה.", env);
     }
 
     await env.DB.prepare(
@@ -211,14 +207,13 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
     await sendTxt(
       phoneNumberId,
       vol.phone,
-      "בקשת ההתנדבות שלך לא אושרה בשלב זה. תודה על הרצון הטוב.",
+      "בקשת ההצטרפות שלך לא אושרה בשלב זה. תודה על הרצון הטוב.",
       env
     );
 
-    return sendTxt(phoneNumberId, from, `❌ המתנדב ${vol.name} נדחה.`, env);
+    return sendTxt(phoneNumberId, from, `❌ בעל המקצוע ${vol.name} נדחה.`, env);
   }
 
-  // Start volunteer signup
   if (lowerText === "הצטרפות") {
     await setSession(env, from, {
       volunteer_signup: true,
@@ -229,7 +224,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
     return sendTxt(
       phoneNumberId,
       from,
-      "ברוכים הבאים למערך המתנדבים 🇮🇱\n\nמה שמך המלא?",
+      "ברוכים הבאים למערך בעלי המקצוע 🇮🇱\n\nמה שמך המלא?",
       env
     );
   }
@@ -237,7 +232,6 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
   const session = await getSession(env, from);
   session.last_interaction = nowIso();
 
-  // Volunteer signup flow
   if (session.volunteer_signup) {
     if (session.step === "name") {
       session.name = text.trim();
@@ -297,7 +291,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
         return sendTxt(
           phoneNumberId,
           ADMIN_PHONE,
-          `🆕 בקשת התנדבות עודכנה\n\n#${existing.id}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${skillsText}\n\nלאישור כתוב:\nאשר ${existing.id}\n\nלדחייה כתוב:\nדחה ${existing.id}`,
+          `🆕 בקשת הצטרפות עודכנה\n\n#${existing.id}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${skillsText}\n\nלאישור כתוב:\nאשר ${existing.id}\n\nלדחייה כתוב:\nדחה ${existing.id}`,
           env
         );
       }
@@ -321,14 +315,14 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
       await sendTxt(
         phoneNumberId,
         from,
-        "תודה! בקשת ההתנדבות שלך נשלחה לאישור.",
+        "תודה! בקשת ההצטרפות שלך נשלחה לאישור.",
         env
       );
 
       return sendTxt(
         phoneNumberId,
         ADMIN_PHONE,
-        `🆕 מתנדב חדש\n\n#${volunteerId}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${skillsText}\n\nלאישור כתוב:\nאשר ${volunteerId}\n\nלדחייה כתוב:\nדחה ${volunteerId}`,
+        `🆕 בעל מקצוע חדש\n\n#${volunteerId}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${skillsText}\n\nלאישור כתוב:\nאשר ${volunteerId}\n\nלדחייה כתוב:\nדחה ${volunteerId}`,
         env
       );
     }
@@ -348,7 +342,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
     return sendTxt(
       phoneNumberId,
       from,
-      `שלום ${firstName}! 👋\n\nאני בוט עזרה למשפחות מילואימניקים.\n\nלהצטרפות כמתנדב כתבו: הצטרפות\n\nאו כתבו לי בהודעה חופשית מה אתם צריכים.`,
+      `שלום ${firstName}! 👋\n\nאני בוט עזרה למשפחות מילואימניקים.\n\nלהצטרפות כבעל מקצוע כתבו: הצטרפות\n\nאו כתבו לי בהודעה חופשית מה אתם צריכים.`,
       env
     );
   }
@@ -358,7 +352,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
     return sendTxt(
       phoneNumberId,
       from,
-      `שלום ${firstName}! 👋\n\nאני בוט עזרה למשפחות מילואימניקים.\n\nלהצטרפות כמתנדב כתבו: הצטרפות\n\nאו כתבו לי בהודעה חופשית מה אתם צריכים.`,
+      `שלום ${firstName}! 👋\n\nאני בוט עזרה למשפחות מילואימניקים.\n\nלהצטרפות כבעל מקצוע כתבו: הצטרפות\n\nאו כתבו לי בהודעה חופשית מה אתם צריכים.`,
       env
     );
   }
@@ -439,12 +433,12 @@ if (buttonId === "confirm_category_no") {
     const vol = await env.DB.prepare("SELECT * FROM volunteers WHERE id=?").bind(Number(volunteerId)).first();
 
     if (!req || !vol) {
-      return sendTxt(phoneNumberId, from, "❌ הבקשה או המתנדב לא נמצאו במערכת.", env);
+      return sendTxt(phoneNumberId, from, "❌ הבקשה או בעל המקצוע לא נמצאו במערכת.", env);
     }
 
     if (action === "accept") {
       if (req.status === "assigned") {
-        return sendTxt(phoneNumberId, from, "בקשה זו כבר שויכה למתנדב אחר. תודה על הרצון הטוב! 💙", env);
+        return sendTxt(phoneNumberId, from, "בקשה זו כבר שויכה לבעל מקצוע אחר. תודה על הרצון הטוב! 💙", env);
       }
 
       const assigned = JSON.stringify({
@@ -473,7 +467,7 @@ if (buttonId === "confirm_category_no") {
       await sendTxt(
         phoneNumberId,
         req.phone,
-        `🎉 בשורות טובות! נמצא מתנדב לבקשתכם (${req.id}). המתנדב ${vol.name} ייצור עמכם קשר בהקדם.`,
+        `🎉 בשורות טובות! נמצא בעל מקצוע לבקשתכם (${req.id}). בעל המקצוע ${vol.name} ייצור עמכם קשר בהקדם.`,
         env
       );
     }
@@ -490,7 +484,6 @@ if (buttonId === "confirm_category_no") {
   if (interactive.type === "list_reply") {
     const selectedId = interactive.list_reply.id;
 
-
     if (selectedId.startsWith("volskill_more_")) {
       const nextPage = Number(selectedId.replace("volskill_more_", ""));
       return sendVolunteerSkillsList(phoneNumberId, from, env, nextPage);
@@ -501,7 +494,7 @@ if (buttonId === "confirm_category_no") {
       const session = await getSession(env, from);
 
       if (!session.volunteer_signup) {
-        return sendTxt(phoneNumberId, from, "לא נמצאה הרשמת מתנדב פעילה. כתוב: הצטרפות", env);
+        return sendTxt(phoneNumberId, from, "לא נמצאה הרשמת בעל מקצוע פעילה. כתוב: הצטרפות", env);
       }
 
       const existing = await env.DB.prepare(
@@ -526,7 +519,7 @@ if (buttonId === "confirm_category_no") {
         return sendTxt(
           phoneNumberId,
           "972533400219",
-          `🆕 בקשת התנדבות עודכנה\n\n#${existing.id}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${VOLUNTEER_SKILLS[skill]}\n\nלאישור כתוב:\nאשר ${existing.id}\n\nלדחייה כתוב:\nדחה ${existing.id}`,
+          `🆕 בקשת הצטרפות עודכנה\n\n#${existing.id}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${VOLUNTEER_SKILLS[skill]}\n\nלאישור כתוב:\nאשר ${existing.id}\n\nלדחייה כתוב:\nדחה ${existing.id}`,
           env
         );
       }
@@ -547,12 +540,12 @@ if (buttonId === "confirm_category_no") {
 
       await clearSession(env, from);
 
-      await sendTxt(phoneNumberId, from, "תודה! בקשת ההתנדבות שלך נשלחה לאישור.", env);
+      await sendTxt(phoneNumberId, from, "תודה! בקשת ההצטרפות שלך נשלחה לאישור.", env);
 
       return sendTxt(
         phoneNumberId,
         "972533400219",
-        `🆕 מתנדב חדש\n\n#${volunteerId}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${VOLUNTEER_SKILLS[skill]}\n\nלאישור כתוב:\nאשר ${volunteerId}\n\nלדחייה כתוב:\nדחה ${volunteerId}`,
+        `🆕 בעל מקצוע חדש\n\n#${volunteerId}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${VOLUNTEER_SKILLS[skill]}\n\nלאישור כתוב:\nאשר ${volunteerId}\n\nלדחייה כתוב:\nדחה ${volunteerId}`,
         env
       );
     }
@@ -573,7 +566,7 @@ if (buttonId === "confirm_category_no") {
       return sendTxt(
         phoneNumberId,
         from,
-        `${URGENCY_EMOJI[urgency] || "📋"} בקשתך התקבלה בהצלחה.\n\nמספר בקשה: ${req.id}\nאין כרגע מתנדבים זמינים בעיר שלך בתחום זה.`,
+        `${URGENCY_EMOJI[urgency] || "📋"} בקשתך התקבלה בהצלחה.\n\nמספר בקשה: ${req.id}\nאין כרגע בעלי מקצוע זמינים בעיר שלך בתחום זה.`,
         env
       );
     }
@@ -597,7 +590,7 @@ if (buttonId === "confirm_category_no") {
     return sendTxt(
       phoneNumberId,
       from,
-      `${URGENCY_EMOJI[urgency]} בקשתך התקבלה ונרשמה.\n\nמספר: ${req.id}\nסוג: ${CATEGORY_HEBREW[req.category] || req.category}\nעיר: ${req.city}\nדחיפות: ${URGENCY_HEBREW[urgency]}\n\nשלחנו התראה ל-${notified} מתנדבים.`,
+      `${URGENCY_EMOJI[urgency]} בקשתך התקבלה ונרשמה.\n\nמספר: ${req.id}\nסוג: ${CATEGORY_HEBREW[req.category] || req.category}\nעיר: ${req.city}\nדחיפות: ${URGENCY_HEBREW[urgency]}\n\nשלחנו התראה ל-${notified} בעלי מקצוע.`,
       env
     );
   }
@@ -615,7 +608,6 @@ async function sendCategoryConfirmButtons(phoneNumberId, to, category, env) {
     env
   );
 }
-
 
 async function sendVolunteerSkillsList(phoneNumberId, to, env, pageIndex = 0) {
   const token = await env.WHATSAPP_TOKEN.get();
@@ -647,15 +639,15 @@ async function sendVolunteerSkillsList(phoneNumberId, to, env, pageIndex = 0) {
       type: "interactive",
       interactive: {
         type: "list",
-        header: { type: "text", text: "תחום התנדבות" },
+        header: { type: "text", text: "תחום מקצועי" },
         body: {
           text: hasNextPage
-            ? "בחר את תחום ההתנדבות המרכזי שלך (חלק 1 מ-2):"
-            : "בחר את תחום ההתנדבות המרכזי שלך:"
+            ? "בחר את התחום המקצועי המרכזי שלך (חלק 1 מ-2):"
+            : "בחר את התחום המקצועי המרכזי שלך:"
         },
         action: {
           button: "בחר תחום",
-          sections: [{ title: "תחומי התנדבות", rows }]
+          sections: [{ title: "תחומים מקצועיים", rows }]
         }
       }
     })
@@ -849,9 +841,9 @@ function extractCity(text) {
 function normalizeCity(text) {
   const trimmed = text.trim();
   if (trimmed.length < 2 || trimmed.length > 30) return null;
-  // reject inputs that are clearly not a place name (pure numbers, urls, etc.)
+
   if (/^\d+$/.test(trimmed)) return null;
-  if (/https?:\/\//.test(trimmed)) return null;
+  if (/https?:\/\
   return trimmed;
 }
 
