@@ -45,7 +45,7 @@ const KEYWORDS = {
   medical: ["תרופה", "מרשם", "בית מרקחת", "רופא", "קופת חולים", "בדיקה", "חום", "מיון", "אמבולנס"],
   errands: ["סידורים", "דואר", "בנק", "לקנות", "חבילה", "מסמכים", "טפסים", "עירייה", "שליחות"],
   household: ["ניקיון", "כביסה", "כלים", "סידור הבית", "רהיט", "הרכבה", "מדף", "ארון", "גינה"],
-  emotional: ["לדבר", "שיחה", "תמיכה", "בודדה", "קשה לי", "לחץ", "חרדה", "פחד", "עידוד", "אוזן קשבת"],
+  emotional: ["לדבר", "שיחה", "תמיכה", "בודדה", "קשה לי", "לחץ", "חרדה", "פחד", "עידוד", "אוזן קשבת"]
 };
 
 const CITIES = [
@@ -54,17 +54,14 @@ const CITIES = [
   "בת ים", "ראש העין", "מודיעין", "לוד", "רעננה", "רהט", "בית שמש", "טבריה",
   "עכו", "נצרת", "דימונה", "שדרות", "נתיבות", "ביתר עילית", "גבעתיים",
   "כרמיאל", "נהריה", "קריית גת", "חדרה", "יבנה", "אופקים",
-
-  "קריית אתא", "קריית מוצקין",
-
-  "קריית ים", "קריית ביאליק", "קריית שמונה", "קריית מלאכי", "קריית אונו",
-  "אילת", "צפת", "מעלות תרשיחא", "קצרין", "אור יהודה", "גן יבנה",
-  "נשר", "טירת כרמל", "זכרון יעקב", "בנימינה", "פרדס חנה כרכור",
-  "אריאל", "מעלה אדומים", "אלעד", "טבעון", "יקנעם", "מגדל העמק",
-  "נוף הגליל", "סח'נין", "שפרעם", "אום אל פחם", "באקה אל גרבייה",
-  "טייבה", "טירה", "כפר קאסם", "ערד", "מצפה רמון", "אבן יהודה",
-  "כוכב יאיר", "הוד השרון", "אבו גוש", "מבשרת ציון", "גבעת שמואל",
-  "אור עקיבא", "בית שאן", "עמק חפר", "משגב", "מטולה"
+  "קריית אתא", "קריית מוצקין", "קריית ים", "קריית ביאליק", "קריית שמונה",
+  "קריית מלאכי", "קריית אונו", "אילת", "צפת", "מעלות תרשיחא", "קצרין",
+  "אור יהודה", "גן יבנה", "נשר", "טירת כרמל", "זכרון יעקב", "בנימינה",
+  "פרדס חנה כרכור", "אריאל", "מעלה אדומים", "אלעד", "טבעון", "יקנעם",
+  "מגדל העמק", "נוף הגליל", "סח'נין", "שפרעם", "אום אל פחם",
+  "באקה אל גרבייה", "טייבה", "טירה", "כפר קאסם", "ערד", "מצפה רמון",
+  "אבן יהודה", "כוכב יאיר", "הוד השרון", "אבו גוש", "מבשרת ציון",
+  "גבעת שמואל", "אור עקיבא", "בית שאן", "עמק חפר", "משגב", "מטולה"
 ];
 
 const CITY_ALIASES = {
@@ -112,6 +109,7 @@ export default {
 
       return Response.json(result.results || []);
     }
+
     if (request.method === "GET") {
       const mode = url.searchParams.get("hub.mode");
       const token = url.searchParams.get("hub.verify_token");
@@ -164,7 +162,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
   if (!text) return;
 
   const lowerText = text.toLowerCase().trim();
-  const ADMIN_PHONE = "972533400219";
+  const ADMIN_PHONE = env.ADMIN_PHONE || "972533400219";
 
   if (from === ADMIN_PHONE && lowerText.startsWith("אשר ")) {
     const volunteerId = Number(lowerText.replace("אשר", "").trim());
@@ -225,13 +223,14 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
     await setSession(env, from, {
       volunteer_signup: true,
       step: "name",
+      skills: [],
       last_interaction: nowIso()
     });
 
     return sendTxt(
       phoneNumberId,
       from,
-      "ברוכים הבאים למערך בעלי המקצוע של OREF 🇮🇱\n\nאתם עומדים לקחת חלק ממשי בעורף הביתי, ולעמוד לצד משפחות שבן או בת הזוג שלהן משרתים במילואים.\n\nכדי להתחיל, מה שמך המלא?",
+      "ברוכים הבאים למערך בעלי המקצוע של OREF 🇮🇱\n\nאתם עומדים לקחת חלק ממשי בעורף הביתי ולעמוד לצד משפחות שבן או בת הזוג שלהן משרתים במילואים.\n\nכדי להתחיל, מה שמך המלא?",
       env
     );
   }
@@ -245,91 +244,39 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
       session.step = "city";
       await setSession(env, from, session);
 
-      return sendTxt(phoneNumberId, from, "מעולה. באיזו עיר אתה נמצא? כך נוכל לחבר אותך למשפחות הקרובות אליך.", env);
+      return sendTxt(
+        phoneNumberId,
+        from,
+        "מעולה. באיזו עיר אתה נמצא?\n\nאנא כתוב שם עיר מוכר בלבד, למשל: נתיבות, באר שבע, ירושלים או חיפה.",
+        env
+      );
     }
 
     if (session.step === "city") {
-
-      const matchedCity = extractCity(text.trim()) || normalizeCity(text.trim());
+      const matchedCity = extractCity(text.trim());
 
       if (!matchedCity) {
         return sendTxt(
           phoneNumberId,
           from,
-          "לא הצלחתי לזהות את העיר. אפשר לכתוב את שם העיר במפורש, למשל: תל אביב, חיפה, באר שבע.",
+          "לא הצלחתי לזהות את העיר.\n\nאנא כתוב שם עיר מוכר בלבד, למשל: נתיבות, באר שבע, ירושלים או חיפה.",
           env
         );
       }
 
       session.city = matchedCity;
       session.step = "skills";
+      session.skills = [];
       await setSession(env, from, session);
 
       return sendVolunteerSkillsList(phoneNumberId, from, env, 0);
     }
 
     if (session.step === "skills") {
-      const skillsText = text.trim();
-
-      const existing = await env.DB.prepare(
-        "SELECT * FROM volunteers WHERE phone=?"
-      ).bind(from).first();
-
-      if (existing) {
-        await env.DB.prepare(
-          "UPDATE volunteers SET name=?, city=?, skills=?, approved=0, rejected=0, available=1, updated_at=? WHERE phone=?"
-        ).bind(
-          session.name,
-          session.city,
-          JSON.stringify([skillsText]),
-          nowIso(),
-          from
-        ).run();
-
-        await clearSession(env, from);
-
-        await sendTxt(
-          phoneNumberId,
-          from,
-          "תודה! הפרטים שלך עודכנו ונשלחו לאישור מחדש. נעדכן אותך בקרוב.",
-          env
-        );
-
-        return sendTxt(
-          phoneNumberId,
-          ADMIN_PHONE,
-          `🆕 פרטי בעל מקצוע עודכנו\n\n#${existing.id}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${skillsText}\n\nלאישור כתוב:\nאשר ${existing.id}\n\nלדחייה כתוב:\nדחה ${existing.id}`,
-          env
-        );
-      }
-
-      const result = await env.DB.prepare(`
-        INSERT INTO volunteers
-        (name, phone, city, skills, approved, rejected, available, assignment_count, created_at)
-        VALUES (?, ?, ?, ?, 0, 0, 1, 0, ?)
-      `).bind(
-        session.name,
-        from,
-        session.city,
-        JSON.stringify([skillsText]),
-        nowIso()
-      ).run();
-
-      const volunteerId = result.meta.last_row_id;
-
-      await clearSession(env, from);
-
-      await sendTxt(
-        phoneNumberId,
-        from,
-        "תודה שהצטרפת! הבקשה שלך נשלחה לאישור, ונחזור אליך בקרוב כדי לצרף אותך רשמית למערך.",
-        env
-      );
-
       return sendTxt(
         phoneNumberId,
-        ADMIN_PHONE,
-        `🆕 בעל מקצוע חדש מבקש להצטרף\n\n#${volunteerId}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${skillsText}\n\nלאישור כתוב:\nאשר ${volunteerId}\n\nלדחייה כתוב:\nדחה ${volunteerId}`,
+        from,
+        "כדי לבחור תחומי עזרה, השתמש ברשימה שנשלחה אליך.\n\nלאחר כל בחירה תוכל להוסיף תחום נוסף או ללחוץ: סיימתי.",
         env
       );
     }
@@ -337,6 +284,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
 
   if (lowerText === "ביטול" || lowerText === "/cancel") {
     await clearSession(env, from);
+
     await env.DB.prepare(
       "UPDATE requests SET status='cancelled', updated_at=? WHERE phone=? AND status IN ('searching','assigned')"
     ).bind(nowIso(), from).run();
@@ -346,6 +294,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
 
   if (lowerText === "/start" || lowerText === "start" || lowerText === "התחל") {
     await clearSession(env, from);
+
     return sendTxt(
       phoneNumberId,
       from,
@@ -356,6 +305,7 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
 
   if (isSmallTalk(text)) {
     await clearSession(env, from);
+
     return sendTxt(
       phoneNumberId,
       from,
@@ -365,13 +315,13 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
   }
 
   if (session.awaiting_city) {
-    const city = extractCity(text) || normalizeCity(text);
+    const city = extractCity(text);
 
     if (!city) {
       return sendTxt(
         phoneNumberId,
         from,
-        "לא הצלחתי לזהות את העיר. אפשר לכתוב את שם העיר במפורש, למשל: תל אביב, באר שבע, ירושלים, נתיבות.",
+        "לא הצלחתי לזהות את העיר.\n\nאנא כתבו שם עיר מוכר בלבד, למשל: נתיבות, באר שבע, ירושלים או חיפה.",
         env
       );
     }
@@ -401,7 +351,10 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
 
   return sendCategoryConfirmButtons(phoneNumberId, from, category, env);
 }
+
 async function handleWhatsAppInteractive(phoneNumberId, from, interactive, env) {
+  const ADMIN_PHONE = env.ADMIN_PHONE || "972533400219";
+
   if (interactive.type === "button_reply") {
     const buttonId = interactive.button_reply.id;
 
@@ -413,23 +366,115 @@ async function handleWhatsAppInteractive(phoneNumberId, from, interactive, env) 
       if (!session.pending_city) {
         session.awaiting_city = true;
         await setSession(env, from, session);
-        return sendTxt(phoneNumberId, from, "באיזו עיר אתם נמצאים? כך נמצא בעל מקצוע קרוב אליכם.", env);
+
+        return sendTxt(
+          phoneNumberId,
+          from,
+          "באיזו עיר אתם נמצאים?\n\nאנא כתבו שם עיר מוכר בלבד, למשל: נתיבות, באר שבע, ירושלים או חיפה.",
+          env
+        );
       }
 
       await setSession(env, from, session);
       return sendUrgencyList(phoneNumberId, from, session.pending_category, session.pending_city, env);
     }
 
-if (buttonId === "confirm_category_no") {
-  await clearSession(env, from);
+    if (buttonId === "confirm_category_no") {
+      await clearSession(env, from);
 
-  return sendTxt(
-    phoneNumberId,
-    from,
-    "אין בעיה 👍\n\nכתבו שוב, בקצרה, מה אתם צריכים — לדוגמה:\nיש נזילה במטבח בנתיבות\nאו:\nצריך הסעה לבית חולים מנתיבות",
-    env
-  );
-}
+      return sendTxt(
+        phoneNumberId,
+        from,
+        "אין בעיה 👍\n\nכתבו שוב, בקצרה, מה אתם צריכים — לדוגמה:\nיש נזילה במטבח בנתיבות\nאו:\nצריך הסעה לבית חולים מנתיבות",
+        env
+      );
+    }
+
+    if (buttonId === "add_more_skills") {
+      const session = await getSession(env, from);
+
+      if (!session.volunteer_signup || session.step !== "skills") {
+        return sendTxt(phoneNumberId, from, "לא נמצאה הרשמה פעילה. כתבו: הצטרפות, כדי להתחיל.", env);
+      }
+
+      return sendVolunteerSkillsList(phoneNumberId, from, env, 0);
+    }
+
+    if (buttonId === "finish_skills") {
+      const session = await getSession(env, from);
+
+      if (!session.volunteer_signup || session.step !== "skills") {
+        return sendTxt(phoneNumberId, from, "לא נמצאה הרשמה פעילה. כתבו: הצטרפות, כדי להתחיל.", env);
+      }
+
+      if (!session.skills || !session.skills.length) {
+        return sendTxt(phoneNumberId, from, "יש לבחור לפחות תחום אחד כדי להשלים את ההצטרפות.", env);
+      }
+
+      const skillsText = session.skills.map((s) => VOLUNTEER_SKILLS[s] || s).join(", ");
+
+      const existing = await env.DB.prepare(
+        "SELECT * FROM volunteers WHERE phone=?"
+      ).bind(from).first();
+
+      if (existing) {
+        await env.DB.prepare(
+          "UPDATE volunteers SET name=?, city=?, skills=?, approved=0, rejected=0, available=1, updated_at=? WHERE phone=?"
+        ).bind(
+          session.name,
+          session.city,
+          JSON.stringify(session.skills),
+          nowIso(),
+          from
+        ).run();
+
+        await clearSession(env, from);
+
+        await sendTxt(
+          phoneNumberId,
+          from,
+          "תודה! הפרטים שלך עודכנו ונשלחו לאישור מחדש. נעדכן אותך בקרוב.",
+          env
+        );
+
+        return sendTxt(
+          phoneNumberId,
+          ADMIN_PHONE,
+          `🆕 פרטי בעל מקצוע עודכנו\n\n#${existing.id}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחומים: ${skillsText}\n\nלאישור כתוב:\nאשר ${existing.id}\n\nלדחייה כתוב:\nדחה ${existing.id}`,
+          env
+        );
+      }
+
+      const result = await env.DB.prepare(`
+        INSERT INTO volunteers
+        (name, phone, city, skills, approved, rejected, available, assignment_count, created_at)
+        VALUES (?, ?, ?, ?, 0, 0, 1, 0, ?)
+      `).bind(
+        session.name,
+        from,
+        session.city,
+        JSON.stringify(session.skills),
+        nowIso()
+      ).run();
+
+      const volunteerId = result.meta.last_row_id;
+
+      await clearSession(env, from);
+
+      await sendTxt(
+        phoneNumberId,
+        from,
+        "תודה שהצטרפת! הבקשה שלך נשלחה לאישור, ונחזור אליך בקרוב כדי לצרף אותך רשמית למערך.",
+        env
+      );
+
+      return sendTxt(
+        phoneNumberId,
+        ADMIN_PHONE,
+        `🆕 בעל מקצוע חדש מבקש להצטרף\n\n#${volunteerId}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחומים: ${skillsText}\n\nלאישור כתוב:\nאשר ${volunteerId}\n\nלדחייה כתוב:\nדחה ${volunteerId}`,
+        env
+      );
+    }
 
     const parts = buttonId.split("_");
     if (parts.length < 3) return;
@@ -500,65 +545,42 @@ if (buttonId === "confirm_category_no") {
       const skill = selectedId.replace(/^volskill_p\d+_/, "");
       const session = await getSession(env, from);
 
-      if (!session.volunteer_signup) {
+      if (!session.volunteer_signup || session.step !== "skills") {
         return sendTxt(phoneNumberId, from, "לא נמצאה הרשמה פעילה. כתבו: הצטרפות, כדי להתחיל.", env);
       }
 
-      const existing = await env.DB.prepare(
-        "SELECT * FROM volunteers WHERE phone=?"
-      ).bind(from).first();
-
-      if (existing) {
-        await env.DB.prepare(
-          "UPDATE volunteers SET name=?, city=?, skills=?, approved=0, rejected=0, available=1, updated_at=? WHERE phone=?"
-        ).bind(
-          session.name,
-          session.city,
-          JSON.stringify([skill]),
-          nowIso(),
-          from
-        ).run();
-
-        await clearSession(env, from);
-
-        await sendTxt(phoneNumberId, from, "תודה! הפרטים שלך עודכנו ונשלחו לאישור מחדש. נעדכן אותך בקרוב.", env);
-
-        return sendTxt(
-          phoneNumberId,
-          "972533400219",
-          `🆕 פרטי בעל מקצוע עודכנו\n\n#${existing.id}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${VOLUNTEER_SKILLS[skill]}\n\nלאישור כתוב:\nאשר ${existing.id}\n\nלדחייה כתוב:\nדחה ${existing.id}`,
-          env
-        );
+      if (!VOLUNTEER_SKILLS[skill]) {
+        return sendTxt(phoneNumberId, from, "התחום שנבחר לא תקין. נסה לבחור שוב מהרשימה.", env);
       }
 
-      const result = await env.DB.prepare(`
-        INSERT INTO volunteers
-        (name, phone, city, skills, approved, rejected, available, assignment_count, created_at)
-        VALUES (?, ?, ?, ?, 0, 0, 1, 0, ?)
-      `).bind(
-        session.name,
-        from,
-        session.city,
-        JSON.stringify([skill]),
-        nowIso()
-      ).run();
+      session.skills = session.skills || [];
 
-      const volunteerId = result.meta.last_row_id;
+      if (!session.skills.includes(skill)) {
+        session.skills.push(skill);
+      }
 
-      await clearSession(env, from);
+      await setSession(env, from, session);
 
-      await sendTxt(phoneNumberId, from, "תודה שהצטרפת! הבקשה שלך נשלחה לאישור, ונחזור אליך בקרוב כדי לצרף אותך רשמית למערך.", env);
+      const selectedSkillsText = session.skills.map((s) => VOLUNTEER_SKILLS[s] || s).join(", ");
 
-      return sendTxt(
+      return sendButtons(
         phoneNumberId,
-        "972533400219",
-        `🆕 בעל מקצוע חדש מבקש להצטרף\n\n#${volunteerId}\nשם: ${session.name}\nעיר: ${session.city}\nטלפון: ${from}\nתחום: ${VOLUNTEER_SKILLS[skill]}\n\nלאישור כתוב:\nאשר ${volunteerId}\n\nלדחייה כתוב:\nדחה ${volunteerId}`,
+        from,
+        `הוספתי: ${VOLUNTEER_SKILLS[skill]}\n\nהתחומים שבחרת עד עכשיו:\n${selectedSkillsText}\n\nרוצה להוסיף תחום נוסף?`,
+        [
+          { id: "add_more_skills", title: "➕ להוסיף עוד" },
+          { id: "finish_skills", title: "✅ סיימתי" }
+        ],
         env
       );
     }
 
     const urgency = selectedId;
     const session = await getSession(env, from);
+
+    if (!["low", "medium", "high", "critical"].includes(urgency)) {
+      return sendTxt(phoneNumberId, from, "בחירת הדחיפות לא תקינה. אפשר להתחיל מחדש ולתאר את הבקשה.", env);
+    }
 
     if (!session.pending_description) {
       return sendTxt(phoneNumberId, from, "לא מצאנו את הפנייה במערכת. אפשר לתאר שוב, בקצרה, מה אתם צריכים.", env);
@@ -586,10 +608,16 @@ if (buttonId === "confirm_category_no") {
         `משפחה באזור *${req.city}* זקוקה לעזרה בתחום *${CATEGORY_HEBREW[req.category] || req.category}*, בזמן ששירות המילואים ממשיך.\n\n` +
         `*תיאור:* ${req.description}`;
 
-      const ok = await sendButtons(phoneNumberId, v.phone, msgForVolunteer, [
-        { id: `accept_${req.id}_${v.id}`, title: "✅ אני יכול לעזור" },
-        { id: `reject_${req.id}_${v.id}`, title: "❌ לא זמין כעת" }
-      ], env);
+      const ok = await sendButtons(
+        phoneNumberId,
+        v.phone,
+        msgForVolunteer,
+        [
+          { id: `accept_${req.id}_${v.id}`, title: "✅ אני יכול לעזור" },
+          { id: `reject_${req.id}_${v.id}`, title: "❌ לא זמין כעת" }
+        ],
+        env
+      );
 
       if (ok) notified++;
     }
@@ -649,8 +677,8 @@ async function sendVolunteerSkillsList(phoneNumberId, to, env, pageIndex = 0) {
         header: { type: "text", text: "תחום מקצועי" },
         body: {
           text: hasNextPage
-            ? "באיזה תחום תוכל לעזור למשפחות המילואימניקים? (חלק 1 מ-2)"
-            : "באיזה תחום תוכל לעזור למשפחות המילואימניקים?"
+            ? "באיזה תחום תוכל לעזור למשפחות המילואימניקים? אפשר לבחור כמה תחומים — כל פעם תחום אחד."
+            : "בחר תחום נוסף או סיים לאחר הבחירה."
         },
         action: {
           button: "בחר תחום",
@@ -666,6 +694,7 @@ async function sendVolunteerSkillsList(phoneNumberId, to, env, pageIndex = 0) {
 
   return res.ok;
 }
+
 async function sendTxt(phoneNumberId, to, text, env) {
   const token = await env.WHATSAPP_TOKEN.get();
 
@@ -806,8 +835,11 @@ async function findVolunteers(env, city, category) {
 
   const nearby = nearbyCities(city);
 
-  return rows.results
-    .map((v) => ({ ...v, skillsArr: JSON.parse(v.skills || "[]") }))
+  return (rows.results || [])
+    .map((v) => ({
+      ...v,
+      skillsArr: safeJsonArray(v.skills)
+    }))
     .filter((v) => v.city === city || nearby.includes(v.city))
     .filter((v) => category === "general" || v.skillsArr.includes(category) || v.skillsArr.includes("general"))
     .slice(0, 5);
@@ -861,6 +893,7 @@ function classify(text) {
 
   for (const [cat, words] of Object.entries(KEYWORDS)) {
     const score = words.filter((w) => t.includes(w)).length;
+
     if (score > bestScore) {
       best = cat;
       bestScore = score;
@@ -871,32 +904,38 @@ function classify(text) {
 }
 
 function extractCity(text) {
-  const direct = [...CITIES].sort((a, b) => b.length - a.length).find((c) => text.includes(c));
+  const clean = text.trim();
+
+  const direct = [...CITIES]
+    .sort((a, b) => b.length - a.length)
+    .find((c) => clean.includes(c));
+
   if (direct) return direct;
 
   for (const [alias, canonical] of Object.entries(CITY_ALIASES)) {
-    if (text.includes(alias)) return canonical;
+    if (clean.includes(alias)) return canonical;
   }
 
   return null;
 }
 
-function normalizeCity(text) {
-  const trimmed = text.trim();
-  if (trimmed.length < 2 || trimmed.length > 30) return null;
-
-  if (/^\d+$/.test(trimmed)) return null;
-  if (/https?:\/\//.test(trimmed)) return null;
-  return trimmed;
-}
-
 function isSmallTalk(text) {
   const t = text.toLowerCase().trim();
+
   return ["שלום", "היי", "הי", "אהלן", "תודה", "מה נשמע", "מה קורה", "עזרה"].includes(t) || t.length < 3;
 }
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function safeJsonArray(value) {
+  try {
+    const parsed = JSON.parse(value || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 async function getSession(env, chatId) {
@@ -913,6 +952,7 @@ async function setSession(env, chatId, data) {
 async function clearSession(env, chatId) {
   await env.DB.prepare("DELETE FROM sessions WHERE chat_id=?").bind(chatId).run();
 }
+
 async function classifyWithAI(env, text) {
   try {
     const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
@@ -935,6 +975,7 @@ async function classifyWithAI(env, text) {
     console.log("AI raw result:", JSON.stringify(result));
 
     const raw = String(result.response || "").trim().toLowerCase();
+
     const category = raw
       .replace(/```/g, "")
       .replace(/[^a-z_]/g, "")
