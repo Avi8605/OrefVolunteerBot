@@ -213,7 +213,12 @@ async function handleWhatsAppText(phoneNumberId, from, text, firstName, env) {
 
     return sendTxt(phoneNumberId, from, `❌ ${vol.name} נדחה.`, env);
   }
-
+  
+  if (from === ADMIN_PHONE && (lowerText === "מתנדבים" || lowerText === "/volunteers")) {
+  const volunteersText = await getVolunteersText(env);
+  return sendTxt(phoneNumberId, from, volunteersText, env);
+  }
+  
   if (from === ADMIN_PHONE && (lowerText === "סטטיסטיקה" || lowerText === "/stats" || lowerText === "סטטיסטיקות")) {
     const statsText = await getStatsText(env);
     return sendTxt(phoneNumberId, from, statsText, env);
@@ -951,6 +956,44 @@ async function setSession(env, chatId, data) {
 
 async function clearSession(env, chatId) {
   await env.DB.prepare("DELETE FROM sessions WHERE chat_id=?").bind(chatId).run();
+}
+
+async function getVolunteersText(env) {
+  const result = await env.DB.prepare(`
+    SELECT id, name, phone, city, skills, approved, rejected, available, created_at
+    FROM volunteers
+    ORDER BY created_at DESC
+    LIMIT 30
+  `).all();
+
+  const rows = result.results || [];
+
+  if (!rows.length) {
+    return "אין עדיין מתנדבים רשומים במערכת.";
+  }
+
+  return rows.map((v) => {
+    const skills = safeJsonArray(v.skills)
+      .map((s) => VOLUNTEER_SKILLS[s] || s)
+      .join(", ");
+
+    const status =
+      v.approved
+        ? "מאושר"
+        : v.rejected
+          ? "נדחה"
+          : "ממתין לאישור";
+
+    const available = v.available ? "זמין" : "לא זמין";
+
+    return (
+      `#${v.id} - ${v.name}\n` +
+      `עיר: ${v.city}\n` +
+      `טלפון: ${v.phone}\n` +
+      `תחומים: ${skills || "לא צוין"}\n` +
+      `סטטוס: ${status} | ${available}`
+    );
+  }).join("\n\n");
 }
 
 async function classifyWithAI(env, text) {
